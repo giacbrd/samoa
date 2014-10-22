@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features;
+package com.yahoo.labs.samoa.features.word2vec;
 
 /*
  * #%L
@@ -20,12 +20,17 @@ package com.yahoo.labs.samoa.features;
  * #L%
  */
 
+import java.io.Serializable;
 
 /**
- * A feature learner generates features from a input stream
- * and it produces a data samples stream for learners (classifiers).
- *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface FeatureLearner {
+public class Vocab implements Serializable {
+    public int count;
+    public int index;
+    public double sample_probability = 1.0;
+
+    public Vocab(int count) {
+        this.count = count;
+    }
 }
