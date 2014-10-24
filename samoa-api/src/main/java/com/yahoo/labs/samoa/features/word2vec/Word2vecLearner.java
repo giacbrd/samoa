@@ -20,10 +20,24 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
-import com.yahoo.labs.samoa.features.FeatureLearner;
+
+import org.jblas.DoubleMatrix;
 
 /**
+ * Learn from words in the same context and produce a gradient.
+ *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Word2vec implements FeatureLearner{
+public interface Word2vecLearner {
+
+    /**
+     * Learn from a word pair and return the gradient.
+     * @param word The word to learn
+     * @param wordC A word of the context
+     * @param alpha Learning rate
+     * @param labels Precomputed true labels (first element is 1, relative to {@code word}, the others 0, relative to negative sampled words)
+     * @return
+     */
+    //FIXME paramters will be changed for sure!
+    public DoubleMatrix trainPair(Vocab word, Vocab wordC, double alpha, DoubleMatrix labels);
 }

@@ -21,46 +21,38 @@ package com.yahoo.labs.samoa.features.word2vec;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
-import com.yahoo.labs.samoa.core.EntranceProcessor;
-import com.yahoo.labs.samoa.core.Processor;
-
-import java.io.File;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SentencesEntranceProcessor  implements EntranceProcessor {
+public class OneContentEvent<T> implements ContentEvent {
 
-    public SentencesEntranceProcessor(File file) {
+    private String key;
+    private T content;
+    private boolean isLastEvent;
+
+    public OneContentEvent(T content, boolean isLastEvent) {
+        this.content = content;
+        this.isLastEvent = isLastEvent;
     }
 
     @Override
-    public boolean process(ContentEvent event) {
-        return false;
+    public String getKey() {
+        return key;
     }
 
     @Override
-    public void onCreate(int id) {
+    public void setKey(String key) {
 
+        this.key = key;
     }
 
     @Override
-    public Processor newProcessor(Processor processor) {
-        return null;
+    public boolean isLastEvent() {
+        return isLastEvent;
     }
 
-    @Override
-    public boolean isFinished() {
-        return false;
-    }
-
-    @Override
-    public boolean hasNext() {
-        return false;
-    }
-
-    @Override
-    public ContentEvent nextEvent() {
-        return null;
+    public T getContent() {
+        return content;
     }
 }

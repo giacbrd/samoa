@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.word2vec.batch;
 
 /*
  * #%L
@@ -46,8 +46,8 @@ public class Word2vecBatchTask  implements Task, Configurable {
 
     private TopologyBuilder builder;
 
-    public StringOption evaluationNameOption = new StringOption("evaluationName", 'n', "Identifier of the evaluation",
-            "Word2vecBatchTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+    public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
+            "Word2vecTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
     public FileOption inputFileOption = new FileOption("inputFile", 'i', "File with the list of sentences," +
             " one sentence per line, words are divided by a space", null, "csv", false);
     public FlagOption saveModel = new FlagOption("saveModel", 's', "Save the model in the same path of the sentences file.");
@@ -97,7 +97,7 @@ public class Word2vecBatchTask  implements Task, Configurable {
     public void setFactory(ComponentFactory factory) {
         builder = new TopologyBuilder(factory);
         logger.debug("Sucessfully instantiating TopologyBuilder");
-        builder.initTopology(evaluationNameOption.getValue());
-        logger.debug("Sucessfully initializing SAMOA topology with name {}", evaluationNameOption.getValue());
+        builder.initTopology(w2vNameOption.getValue());
+        logger.debug("Sucessfully initializing SAMOA topology with name {}", w2vNameOption.getValue());
     }
 }

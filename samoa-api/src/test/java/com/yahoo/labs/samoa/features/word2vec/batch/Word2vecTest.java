@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.word2vec.batch;
 
 /*
  * #%L
@@ -21,17 +21,15 @@ package com.yahoo.labs.samoa.features.word2vec;
  */
 
 import junit.framework.TestCase;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.LineIterator;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 
 public class Word2vecTest extends TestCase {
@@ -70,6 +68,19 @@ public class Word2vecTest extends TestCase {
 //        for (ImmutablePair<String, Double> p: results) {
 //            logger.info(p.getLeft() + " " + Double.toString(p.getRight()));
 //        }
+    }
+
+    @Test
+    public void test_accuracy() {
+        Word2vec w2v = new Word2vec(sentences, 100, 0.025, (short)5, (short)0, 0.0, 1, 0.0, true, false, (short)10, false);
+        try {
+            w2v.load(new File("/home/gberardi/samoa_data/word2vec_model_0_1003301006"));
+            w2v.accuracy(new File("/home/gberardi/samoa_data/questions-words.txt"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
 }

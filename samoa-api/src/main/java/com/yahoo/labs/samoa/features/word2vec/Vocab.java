@@ -25,12 +25,23 @@ import java.io.Serializable;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Vocab implements Serializable {
+public class Vocab implements Serializable, Comparable {
     public int count;
     public int index;
     public double sample_probability = 1.0;
 
     public Vocab(int count) {
         this.count = count;
+    }
+
+    /**
+     * Order by word count, top words are the most frequent.
+     * @param o
+     * @return
+     */
+    @Override
+    public int compareTo(Object o) {
+        Vocab other = (Vocab) o;
+        return Integer.compare(other.count, this.count);
     }
 }
