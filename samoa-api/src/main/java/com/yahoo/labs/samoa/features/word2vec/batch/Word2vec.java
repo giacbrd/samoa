@@ -119,7 +119,7 @@ public class Word2vec {
         if (total_words <= 0) {
             total_words = 0;
             for (Vocab v: vocab.values()) {
-                total_words += (long) (v.sample_probability * v.count);
+                total_words += (long) (v.sampleProb * v.count);
             }
         }
         // Learning
@@ -129,7 +129,7 @@ public class Word2vec {
             // avoid calling random_sample() where prob >= 1, to speed things up a little
             ArrayList<Vocab> sentence = new ArrayList<Vocab>();
             for (String word: temp_sentence) {
-                if (vocab.containsKey(word) && (vocab.get(word).sample_probability >= 1.0 || vocab.get(word).sample_probability >= Random.nextDouble())) {
+                if (vocab.containsKey(word) && (vocab.get(word).sampleProb >= 1.0 || vocab.get(word).sampleProb >= Random.nextDouble())) {
                     sentence.add(vocab.get(word));
                 }
             }
@@ -348,7 +348,7 @@ public class Word2vec {
         }
         for (Vocab v: vocab.values()) {
             double prob = sample > 0 ? (Math.sqrt(v.count / threshold_count) + 1) * (threshold_count / v.count) : 1.0;
-            v.sample_probability = Math.min(prob, 1.0);
+            v.sampleProb = Math.min(prob, 1.0);
         }
     }
 
