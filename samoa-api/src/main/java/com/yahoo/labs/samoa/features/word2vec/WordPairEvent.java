@@ -20,28 +20,41 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
-import java.io.Serializable;
+import com.yahoo.labs.samoa.core.ContentEvent;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Vocab implements Serializable, Comparable {
-    public int count;
-    public int index;
-    public double sampleProb = 1.0;
+public class WordPairEvent implements ContentEvent {
 
-    public Vocab(int count) {
-        this.count = count;
+    private final String word;
+    private final String wordC;
+    private String key;
+    private boolean label;
+    private boolean isLastEvent;
+
+    public WordPairEvent(String word, String wordC, boolean label, boolean isLastEvent) {
+
+        this.word = word;
+        this.wordC = wordC;
+        this.label = label;
+        this.isLastEvent = isLastEvent;
     }
 
-    /**
-     * Order by word count, top words are the most frequent.
-     * @param o
-     * @return
-     */
     @Override
-    public int compareTo(Object o) {
-        Vocab other = (Vocab) o;
-        return Integer.compare(other.count, this.count);
+    public String getKey() {
+        return key;
     }
+
+    @Override
+    public void setKey(String key) {
+
+        this.key = key;
+    }
+
+    @Override
+    public boolean isLastEvent() {
+        return isLastEvent;
+    }
+
 }

@@ -56,8 +56,10 @@ public class Word2vecTask implements Task, Configurable {
     private Topology topology;
     private IteratorEntrance entrance;
     private Stream toIndexer;
-    private IndexProcessor indexProcessor;
+    private IndexGenerator indexGenerator;
+    private Stream toDistributorStream;
     private Stream toLearnerStream;
+    private WordPairSampler wordPairSampler;
 
     @Override
     public void init() {
@@ -75,12 +77,19 @@ public class Word2vecTask implements Task, Configurable {
         builder.addEntranceProcessor(entrance);
         toIndexer = builder.createStream(entrance);
 
-        // TEST
-        indexProcessor = new IndexProcessor();
-        builder.addProcessor(indexProcessor);
-        builder.connectInputAllStream(toIndexer, indexProcessor);
-        toLearnerStream = builder.createStream(indexProcessor);
-        indexProcessor.setOutputStream(toLearnerStream);
+        // Generate vocabulary
+        indexGenerator = new IndexGenerator();
+        builder.addProcessor(indexGenerator);
+        builder.connectInputAllStream(toIndexer, indexGenerator);
+        toDistributorStream = builder.createStream(indexGenerator);
+        indexGenerator.setOutputStream(toDistributorStream);
+
+        // Sample and distribute word pairs
+        wordPairSampler = new WordPairSampler(10000);
+        builder.addProcessor(wordPairSampler);
+        builder.connectInputAllStream(toDistributorStream, wordPairSampler);
+        toLearnerStream = builder.createStream(wordPairSampler);
+        wordPairSampler.setOutputStream(toLearnerStream);
 
         // build the topology
         topology = builder.build();
