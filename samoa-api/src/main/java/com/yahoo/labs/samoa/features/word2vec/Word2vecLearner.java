@@ -21,6 +21,7 @@ package com.yahoo.labs.samoa.features.word2vec;
  */
 
 
+import com.yahoo.labs.samoa.features.word2vec.batch.Vocab;
 import org.jblas.DoubleMatrix;
 
 /**

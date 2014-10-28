@@ -28,6 +28,19 @@ import com.yahoo.labs.samoa.core.ContentEvent;
 public class WordPairEvent implements ContentEvent {
 
     private final String word;
+
+    public String getWord() {
+        return word;
+    }
+
+    public String getWordC() {
+        return wordC;
+    }
+
+    public boolean isLabel() {
+        return label;
+    }
+
     private final String wordC;
     private String key;
     private boolean label;

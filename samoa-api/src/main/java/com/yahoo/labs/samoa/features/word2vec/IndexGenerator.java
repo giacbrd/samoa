@@ -40,7 +40,8 @@ public class IndexGenerator implements Processor {
     private int id;
     private Stream outputStream;
     private long totalSentences = 0;
-    private HashMap<String, Vocab> vocab;
+    //FIXME use Guava CacheBuilder?!
+    private HashMap<String, Long> vocab;
     private long totalWords = 0;
 
 
@@ -56,7 +57,7 @@ public class IndexGenerator implements Processor {
     @Override
     public void onCreate(int id) {
         this.id = id;
-        vocab = new HashMap<String, Vocab>();
+        vocab = new HashMap<String, Long>();
     }
 
     //FIXME time decay should be managed here?
@@ -69,7 +70,7 @@ public class IndexGenerator implements Processor {
             return true;
         }
         OneContentEvent content = (OneContentEvent) event;
-        if (totalSentences % 10000 == 0) {
+        if (totalSentences % 10000 == 0 && totalSentences > 0) {
             logger.info("IndexGenerator-{}: after {} sentences, processed {} words and {} word types",
                     id, totalSentences, totalWords, vocab.size());
         }
@@ -78,15 +79,16 @@ public class IndexGenerator implements Processor {
         totalWords += sentence.length;
         totalSentences++;
         // TODO send only currVocab to the learner? if not work directly on vocab
-        HashMap<String, Vocab> currVocab = sentenceVocab(sentence);
-        HashMap<String, Vocab> outVocab = new HashMap<String, Vocab>(currVocab.size());
-        Iterator<Map.Entry<String, Vocab>> vocabIter = currVocab.entrySet().iterator();
+        HashMap<String, Long> currVocab = sentenceVocab(sentence);
+        HashMap<String, Long> outVocab = new HashMap<String, Long>(currVocab.size());
+        Iterator<Map.Entry<String, Long>> vocabIter = currVocab.entrySet().iterator();
         // FIXME here communications with redis for old words
         while (vocabIter.hasNext()) {
-            Map.Entry<String, Vocab> vocabWord = vocabIter.next();
+            Map.Entry<String, Long> vocabWord = vocabIter.next();
             String word = vocabWord.getKey();
             if (vocab.containsKey(word)) {
-                vocab.get(word).count++;
+                // We use Vocab (and not a map of <String, Integer>) just for the speed of this operation
+                vocab.put(word, vocab.get(word)+1);
             } else {
                 vocab.put(word, vocabWord.getValue());
             }
@@ -97,13 +99,13 @@ public class IndexGenerator implements Processor {
         return true;
     }
 
-    private HashMap<String, Vocab> sentenceVocab(String[] sentence) {
-        HashMap<String, Vocab> currVocab = new HashMap<String, Vocab>(sentence.length);
+    private HashMap<String, Long> sentenceVocab(String[] sentence) {
+        HashMap<String, Long> currVocab = new HashMap<String, Long>(sentence.length);
         for (String word:sentence) {
             if (currVocab.containsKey(word)) {
-                currVocab.get(word).count += 1;
+                currVocab.put(word, currVocab.get(word)+1);
             } else {
-                currVocab.put(word, new Vocab(1));
+                currVocab.put(word, (long)1);
             }
         }
         return currVocab;
@@ -112,8 +114,12 @@ public class IndexGenerator implements Processor {
 
     @Override
     public Processor newProcessor(Processor processor) {
-        //FIXME
-        return null;
+        IndexGenerator p = (IndexGenerator) processor;
+        IndexGenerator i = new IndexGenerator(p.totalWords, p.totalSentences);
+        i.outputStream = p.outputStream;
+        // FIXME not good passing the reference if distributed?!
+        i.vocab = p.vocab;
+        return i;
     }
 
     public void setOutputStream(Stream outputStream) {

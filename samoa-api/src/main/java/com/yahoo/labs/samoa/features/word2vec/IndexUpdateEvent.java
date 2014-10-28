@@ -29,13 +29,13 @@ import java.util.HashMap;
  */
 public class IndexUpdateEvent implements ContentEvent {
 
-    private final HashMap<String, Vocab> vocab;
+    private final HashMap<String, Long> vocab;
     private final HashMap<Integer, String> index2word;
     private long wordCount;
     private String key;
     private boolean isLastEvent;
 
-    public IndexUpdateEvent(HashMap<String, Vocab> vocab, HashMap<Integer, String> index2word, long wordCount, boolean isLastEvent) {
+    public IndexUpdateEvent(HashMap<String, Long> vocab, HashMap<Integer, String> index2word, long wordCount, boolean isLastEvent) {
         this.vocab = vocab;
         this.index2word = index2word;
         this.wordCount = wordCount;
@@ -61,7 +61,7 @@ public class IndexUpdateEvent implements ContentEvent {
     public long getWordCount() {
         return wordCount;
     }
-    public HashMap<String, Vocab> getVocab() {
+    public HashMap<String, Long> getVocab() {
         return vocab;
     }
 

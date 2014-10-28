@@ -22,25 +22,50 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
+import com.yahoo.labs.samoa.topology.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
+ * Simple message distributor to multiple outputs.
+ *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class TestProcessor implements Processor {
-    @Override
-    public boolean process(ContentEvent event) {
-        WordPairEvent e = (WordPairEvent) event;
-        //System.out.println(e.getWord() + " " + e.getWordC());
-        return true;
+public class MultiDistributor implements Processor {
+
+    private static final Logger logger = LoggerFactory.getLogger(MultiDistributor.class);
+    private int id;
+    private Stream[] outputStreams;
+
+
+    public MultiDistributor(int numOutputs) {
+
+        this.outputStreams = new Stream[numOutputs];
     }
 
     @Override
     public void onCreate(int id) {
+        this.id = id;
+    }
 
+    @Override
+    public boolean process(ContentEvent event) {
+        for (int i = 0; i < outputStreams.length; i++) {
+            outputStreams[i].put(event);
+        }
+        return true;
     }
 
     @Override
     public Processor newProcessor(Processor processor) {
-        return new TestProcessor();
+        MultiDistributor p = (MultiDistributor) processor;
+        MultiDistributor m = new MultiDistributor(0);
+        m.outputStreams = p.outputStreams;
+        return m;
+    }
+
+    public void setOutputStream(int i, Stream outputStream) {
+        this.outputStreams[i] = outputStream;
     }
 }

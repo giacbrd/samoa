@@ -21,6 +21,7 @@ package com.yahoo.labs.samoa.features.word2vec;
  */
 
 import com.github.javacliparser.Configurable;
+import com.github.javacliparser.IntOption;
 import com.github.javacliparser.FileOption;
 import com.github.javacliparser.FlagOption;
 import com.github.javacliparser.StringOption;
@@ -46,20 +47,29 @@ public class Word2vecTask implements Task, Configurable {
 
     private static final Logger logger = LoggerFactory.getLogger(Word2vecTask.class);
 
-    private TopologyBuilder builder;
-
     public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
             "Word2vecTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
     public FileOption inputFileOption = new FileOption("inputFile", 'i', "File with the list of sentences," +
             " one sentence per line, words are divided by a space", null, "txt", false);
     public FlagOption saveModel = new FlagOption("saveModel", 's', "Save the model in the same path of the sentences file.");
+    public IntOption precomputedSentences = new IntOption("precomputedSentences", 'p', "Number of sentences on which word" +
+            "statistics are computed before starting the training on them", 1000);
+    public IntOption wordPerSamplingUpdate = new IntOption("wordPerSamplingUpdate", 'u', "Number of indexed words" +
+            "necessary for a new update of the table for negative sampling", 1000000);
+
+    private TopologyBuilder builder;
     private Topology topology;
     private IteratorEntrance entrance;
     private Stream toIndexer;
     private IndexGenerator indexGenerator;
-    private Stream toDistributorStream;
-    private Stream toLearnerStream;
+    private Stream toSampler2;
+    private Stream toLearner;
     private WordPairSampler wordPairSampler;
+    private Stream toBuffer;
+    private SentenceQueue buffer;
+    private Stream toSampler1;
+    private Stream toDistributor;
+    private MultiDistributor sentenceRouter;
 
     @Override
     public void init() {
@@ -67,6 +77,7 @@ public class Word2vecTask implements Task, Configurable {
         // Produce data stream
         LineIterator iterator = null;
         try {
+            // FIXME assumes utf8
             iterator = FileUtils.lineIterator(inputFileOption.getFile(), "UTF-8");
         } catch (java.io.IOException e) {
             logger.error("Error with file " + inputFileOption.getFile().getPath());
@@ -75,21 +86,44 @@ public class Word2vecTask implements Task, Configurable {
         }
         entrance = new IteratorEntrance(iterator);
         builder.addEntranceProcessor(entrance);
-        toIndexer = builder.createStream(entrance);
+        toDistributor = builder.createStream(entrance);
+
+        // Routing of sentences to ndexer and to buffer
+        sentenceRouter = new MultiDistributor(2);
+        builder.addProcessor(sentenceRouter);
+        builder.connectInputAllStream(toDistributor, sentenceRouter);
+        toIndexer = builder.createStream(sentenceRouter);
+        toBuffer = builder.createStream(sentenceRouter);
+        sentenceRouter.setOutputStream(0, toIndexer);
+        sentenceRouter.setOutputStream(1, toBuffer);
+
+        // Buffer sentences before sending to distribution
+        // FIXME parameter!
+        buffer = new SentenceQueue(precomputedSentences.getValue());
+        builder.addProcessor(buffer);
+        builder.connectInputAllStream(toBuffer, buffer);
+        toSampler1 = builder.createStream(buffer);
+        buffer.setOutputStream(toSampler1);
 
         // Generate vocabulary
         indexGenerator = new IndexGenerator();
         builder.addProcessor(indexGenerator);
         builder.connectInputAllStream(toIndexer, indexGenerator);
-        toDistributorStream = builder.createStream(indexGenerator);
-        indexGenerator.setOutputStream(toDistributorStream);
+        toSampler2 = builder.createStream(indexGenerator);
+        indexGenerator.setOutputStream(toSampler2);
 
         // Sample and distribute word pairs
-        wordPairSampler = new WordPairSampler(10000);
+        // FIXME parameter!
+        wordPairSampler = new WordPairSampler(wordPerSamplingUpdate.getValue());
         builder.addProcessor(wordPairSampler);
-        builder.connectInputAllStream(toDistributorStream, wordPairSampler);
-        toLearnerStream = builder.createStream(wordPairSampler);
-        wordPairSampler.setOutputStream(toLearnerStream);
+        builder.connectInputAllStream(toSampler1, wordPairSampler);
+        builder.connectInputAllStream(toSampler2, wordPairSampler);
+        toLearner = builder.createStream(wordPairSampler);
+        wordPairSampler.setOutputStream(toLearner);
+
+        TestProcessor test = new TestProcessor();
+        builder.addProcessor(test);
+        builder.connectInputAllStream(toLearner, test);
 
         // build the topology
         topology = builder.build();

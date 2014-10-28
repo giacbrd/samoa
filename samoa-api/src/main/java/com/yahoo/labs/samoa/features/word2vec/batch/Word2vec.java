@@ -25,7 +25,6 @@ import java.util.*;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.yahoo.labs.samoa.features.word2vec.Vocab;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import org.apache.commons.lang3.tuple.ImmutablePair;

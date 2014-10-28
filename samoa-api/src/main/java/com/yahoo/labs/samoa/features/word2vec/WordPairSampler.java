@@ -37,7 +37,7 @@ public class WordPairSampler implements Processor {
     private static final Logger logger = LoggerFactory.getLogger(WordPairSampler.class);
     private Stream outputStream;
     private double subsamplThr;
-    private HashMap<String, Vocab> vocab;
+    private HashMap<String, Long> vocab;
     private int id;
     long totalWords;
     private int wordsPerUpdate;
@@ -76,6 +76,7 @@ public class WordPairSampler implements Processor {
         this.id = id;
         totalWords = 0;
         normFactor = 1.0;
+        vocab = new HashMap<String, Long>();
     }
 
     @Override
@@ -87,16 +88,20 @@ public class WordPairSampler implements Processor {
         if (event instanceof IndexUpdateEvent) {
             IndexUpdateEvent update = (IndexUpdateEvent) event;
             totalWords += update.getWordCount();
-            HashMap<String, Vocab> vocabUpdate = update.getVocab();
-            for (Map.Entry<String, Vocab> vocabWord: vocabUpdate.entrySet()) {
+            HashMap<String, Long> vocabUpdate = update.getVocab();
+            for (Map.Entry<String, Long> vocabWord: vocabUpdate.entrySet()) {
                 String word = vocabWord.getKey();
-                Vocab v = vocabWord.getValue();
+                long count = vocabWord.getValue();
                 // Received a word deletion
-                if (v.count == 0 && vocab.containsKey(word)) {
+                if (count == 0 && vocab.containsKey(word)) {
                     vocab.remove(word);
                 } else {
-                    vocab.put(word, v);
+                    vocab.put(word, count);
                 }
+            }
+            // Update the noise distribution of negative sampling
+            if (totalWords % wordsPerUpdate == 0 && totalWords > 0) {
+                updateNegativeSampling();
             }
         // When this type of events start to arrive, the vocabulary is already well filled
         } else if (event instanceof OneContentEvent) {
@@ -123,10 +128,6 @@ public class WordPairSampler implements Processor {
                     }
                 }
             }
-        }
-        // Update the noise distribution of negative sampling
-        if (totalWords % wordsPerUpdate == 0) {
-            updateNegativeSampling();
         }
         return true;
     }
@@ -156,17 +157,17 @@ public class WordPairSampler implements Processor {
         index2word = new String[vocabSize];
         //compute sum of all power (Z in paper)
         normFactor = 0.0;
-        for (Map.Entry<String, Vocab> vocabWord: vocab.entrySet()) {
-            normFactor += Math.pow(vocabWord.getValue().count, power);
+        for (Map.Entry<String, Long> vocabWord: vocab.entrySet()) {
+            normFactor += Math.pow(vocabWord.getValue(), power);
         }
         //go through the whole table and fill it up with the word indexes proportional to a word's count**power
         int widx = 0;
         // normalize count^0.75 by Z
-        Iterator<Map.Entry<String, Vocab>> vocabIter = vocab.entrySet().iterator();
-        Map.Entry<String, Vocab> vocabWord = vocabIter.next();
+        Iterator<Map.Entry<String, Long>> vocabIter = vocab.entrySet().iterator();
+        Map.Entry<String, Long> vocabWord = vocabIter.next();
         String word = vocabWord.getKey();
-        Vocab v = vocabWord.getValue();
-        double d1 = Math.pow(v.count, power) / normFactor;
+        long count = vocabWord.getValue();
+        double d1 = Math.pow(count, power) / normFactor;
         index2word[widx] = word;
         for (int tidx = 0; tidx < tableSize; tidx++) {
             table[tidx] = widx;
@@ -175,10 +176,10 @@ public class WordPairSampler implements Processor {
                 if (vocabIter.hasNext()) {
                     vocabWord = vocabIter.next();
                     word = vocabWord.getKey();
-                    v = vocabWord.getValue();
+                    count = vocabWord.getValue();
                     index2word[widx] = word;
                 }
-                d1 += Math.pow(v.count, power) / normFactor;
+                d1 += Math.pow(count, power) / normFactor;
             }
             if (widx >= vocabSize) {
                 widx = vocabSize - 1;
@@ -190,11 +191,11 @@ public class WordPairSampler implements Processor {
         ArrayList<String> sentence = new ArrayList<String>();
         for (String word: contentSentence) {
             if (vocab.containsKey(word)) {
-                Vocab v = vocab.get(word);
+                long count = vocab.get(word);
                 // Subsampling probability
-                double prob = Math.min(subsamplThr > 0 ? (1.0 - Math.sqrt(subsamplThr / v.count)) : 1.0, 1.0);
+                double prob = Math.min(subsamplThr > 0 ? (1.0 - Math.sqrt(subsamplThr / count)) : 1.0, 1.0);
                 // Words sampling
-                if (v.count >= minCount && (prob >= 1.0 || prob >= Random.nextDouble())) {
+                if (count >= minCount && (prob >= 1.0 || prob >= Random.nextDouble())) {
                     sentence.add(word);
                 }
             }
@@ -204,8 +205,16 @@ public class WordPairSampler implements Processor {
 
     @Override
     public Processor newProcessor(Processor processor) {
-        //FIXME
-        return null;
+        WordPairSampler p = (WordPairSampler) processor;
+        WordPairSampler w = new WordPairSampler(p.wordsPerUpdate, p.minCount, p.subsamplThr, p.power, p.window, p.negative, p.tableSize);
+        w.outputStream = p.outputStream;
+        w.totalWords = p.totalWords;
+        // FIXME not good passing the reference if distributed?!
+        w.vocab = p.vocab;
+        w.normFactor = p.normFactor;
+        w.table = p.table;
+        w.index2word = p.index2word;
+        return w;
     }
 
     public void setOutputStream(Stream outputStream) {
