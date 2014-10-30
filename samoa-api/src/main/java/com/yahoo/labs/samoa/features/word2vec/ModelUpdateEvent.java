@@ -21,36 +21,21 @@ package com.yahoo.labs.samoa.features.word2vec;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
+import org.jblas.DoubleMatrix;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class WordPairEvent implements ContentEvent {
+public class ModelUpdateEvent implements ContentEvent {
 
-    private final String word;
-
-    public String getWord() {
-        return word;
-    }
-
-    public String getWordC() {
-        return wordC;
-    }
-
-    public boolean isLabel() {
-        return label;
-    }
-
-    private final String wordC;
     private String key;
-    private boolean label;
+    private String word;
+    private DoubleMatrix row;
     private boolean isLastEvent;
 
-    public WordPairEvent(String word, String wordC, boolean label, boolean isLastEvent) {
-
+    public ModelUpdateEvent(String word, DoubleMatrix row, boolean isLastEvent) {
         this.word = word;
-        this.wordC = wordC;
-        this.label = label;
+        this.row = row;
         this.isLastEvent = isLastEvent;
     }
 
@@ -65,12 +50,17 @@ public class WordPairEvent implements ContentEvent {
         this.key = key;
     }
 
+    public String getWord() {
+        return word;
+    }
+
+    public DoubleMatrix getRow() {
+        return row;
+    }
+
     @Override
     public boolean isLastEvent() {
         return isLastEvent;
     }
 
-    public boolean getLabel() {
-        return label;
-    }
 }

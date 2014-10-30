@@ -75,6 +75,7 @@ public class Word2vecTest extends TestCase {
         Word2vec w2v = new Word2vec(sentences, 100, 0.025, (short)5, (short)0, 0.0, 1, 0.0, true, false, (short)10, false);
         try {
             w2v.load(new File("/home/gberardi/samoa_data/word2vec_model_0_1003301006"));
+            //logger.info(w2v.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>(), 10).toString());
             w2v.accuracy(new File("/home/gberardi/samoa_data/questions-words.txt"));
         } catch (IOException e) {
             e.printStackTrace();

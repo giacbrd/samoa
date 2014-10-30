@@ -35,6 +35,7 @@ import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -53,7 +54,7 @@ public class Word2vecTask implements Task, Configurable {
             " one sentence per line, words are divided by a space", null, "txt", false);
     public FlagOption saveModel = new FlagOption("saveModel", 's', "Save the model in the same path of the sentences file.");
     public IntOption precomputedSentences = new IntOption("precomputedSentences", 'p', "Number of sentences on which word" +
-            "statistics are computed before starting the training on them", 1000);
+            "statistics are computed before starting the training on them", 5000);
     public IntOption wordPerSamplingUpdate = new IntOption("wordPerSamplingUpdate", 'u', "Number of indexed words" +
             "necessary for a new update of the table for negative sampling", 1000000);
 
@@ -70,6 +71,8 @@ public class Word2vecTask implements Task, Configurable {
     private Stream toSampler1;
     private Stream toDistributor;
     private MultiDistributor sentenceRouter;
+    private Stream toModel;
+    private Model model;
 
     @Override
     public void init() {
@@ -88,7 +91,7 @@ public class Word2vecTask implements Task, Configurable {
         builder.addEntranceProcessor(entrance);
         toDistributor = builder.createStream(entrance);
 
-        // Routing of sentences to ndexer and to buffer
+        // Routing of sentences to indexer and to buffer
         sentenceRouter = new MultiDistributor(2);
         builder.addProcessor(sentenceRouter);
         builder.connectInputAllStream(toDistributor, sentenceRouter);
@@ -121,9 +124,17 @@ public class Word2vecTask implements Task, Configurable {
         toLearner = builder.createStream(wordPairSampler);
         wordPairSampler.setOutputStream(toLearner);
 
-        TestProcessor test = new TestProcessor();
-        builder.addProcessor(test);
-        builder.connectInputAllStream(toLearner, test);
+        // Learning
+        Learner learner = new Learner(0.025, 200);
+        builder.addProcessor(learner);
+        builder.connectInputAllStream(toLearner, learner);
+        toModel = builder.createStream(learner);
+        learner.setOutputStream(toModel);
+
+        // Model container
+        model = new Model(new File(""));
+        builder.addProcessor(model);
+        builder.connectInputAllStream(toModel, model);
 
         // build the topology
         topology = builder.build();

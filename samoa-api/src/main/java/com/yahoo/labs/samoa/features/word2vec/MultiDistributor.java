@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Simple message distributor to multiple outputs.
+ * Simple message distributor to multiple output streams.
  *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */

@@ -36,9 +36,8 @@ public interface Word2vecLearner {
      * @param word The word to learn
      * @param wordC A word of the context
      * @param alpha Learning rate
-     * @param labels Precomputed true labels (first element is 1, relative to {@code word}, the others 0, relative to negative sampled words)
      * @return
      */
     //FIXME paramters will be changed for sure!
-    public DoubleMatrix trainPair(Vocab word, Vocab wordC, double alpha, DoubleMatrix labels);
+    public DoubleMatrix trainPair(String word, String wordC, double alpha);
 }

@@ -57,7 +57,8 @@ public class IndexGenerator implements Processor {
     @Override
     public void onCreate(int id) {
         this.id = id;
-        vocab = new HashMap<String, Long>();
+        // FIXME the map size has to be carefully chosen (look at also at vocabs in other classes)
+        vocab = new HashMap<String, Long>(1000000);
     }
 
     //FIXME time decay should be managed here?
@@ -70,10 +71,6 @@ public class IndexGenerator implements Processor {
             return true;
         }
         OneContentEvent content = (OneContentEvent) event;
-        if (totalSentences % 10000 == 0 && totalSentences > 0) {
-            logger.info("IndexGenerator-{}: after {} sentences, processed {} words and {} word types",
-                    id, totalSentences, totalWords, vocab.size());
-        }
         // FIXME this assumes words are divided by a space
         String[] sentence = ((String) content.getContent()).split(" ");
         totalWords += sentence.length;
@@ -95,6 +92,10 @@ public class IndexGenerator implements Processor {
             outVocab.put(word, vocab.get(word));
         }
 //        logger.info("total {} word types after removing those with count<{}", vocab.size(), min_count);
+        if (totalSentences % 1000 == 0 && totalSentences > 0) {
+            logger.info("IndexGenerator-{}: after {} sentences, processed {} words and {} word types",
+                    id, totalSentences, totalWords, vocab.size());
+        }
         outputStream.put(new IndexUpdateEvent(vocab, null, sentence.length, event.isLastEvent()));
         return true;
     }

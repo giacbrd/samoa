@@ -61,11 +61,10 @@ public class SentenceQueue implements Processor {
     public boolean process(ContentEvent event) {
         try {
             if (event.isLastEvent()) {
-                if (queue.isEmpty()) {
-                    outputStream.put(new OneContentEvent<String>(null, true));
-                    return true;
+                while (!queue.isEmpty()) {
+                    pollSentence();
                 }
-                pollSentence();
+                outputStream.put(new OneContentEvent<String>(null, true));
                 return true;
             }
             OneContentEvent contentEvent = (OneContentEvent) event;
@@ -80,7 +79,7 @@ public class SentenceQueue implements Processor {
             }
             return true;
         } catch (UnsupportedEncodingException e) {
-            // This can hardly happens
+            // This can hardly happen
             e.printStackTrace();
             return false;
         }
@@ -90,7 +89,7 @@ public class SentenceQueue implements Processor {
         String outSentence = queue.pollLast();
         if (outSentence != null) {
             totalBytes -= outSentence.getBytes(charset).length;
-            outputStream.put(new OneContentEvent<String>(queue.peekLast(), false));
+            outputStream.put(new OneContentEvent<String>(outSentence, false));
         }
     }
 
