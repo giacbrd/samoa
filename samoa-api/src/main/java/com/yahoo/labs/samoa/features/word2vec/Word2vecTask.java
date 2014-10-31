@@ -57,6 +57,7 @@ public class Word2vecTask implements Task, Configurable {
             "statistics are computed before starting the training on them", 5000);
     public IntOption wordPerSamplingUpdate = new IntOption("wordPerSamplingUpdate", 'u', "Number of indexed words" +
             "necessary for a new update of the table for negative sampling", 1000000);
+    public IntOption minCount = new IntOption("minCount", 'c', "Ignore all words with total frequency lower than this", 5);
 
     private TopologyBuilder builder;
     private Topology topology;
@@ -117,7 +118,8 @@ public class Word2vecTask implements Task, Configurable {
 
         // Sample and distribute word pairs
         // FIXME parameter!
-        wordPairSampler = new WordPairSampler(wordPerSamplingUpdate.getValue());
+        wordPairSampler = new WordPairSampler(wordPerSamplingUpdate.getValue(), (short) minCount.getValue(),
+                0.0, 0.75, (short) 5, 10, 100000000);
         builder.addProcessor(wordPairSampler);
         builder.connectInputAllStream(toSampler1, wordPairSampler);
         builder.connectInputAllStream(toSampler2, wordPairSampler);

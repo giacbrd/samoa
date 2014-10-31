@@ -86,6 +86,11 @@ public class WordPairSampler implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event instanceof IndexUpdateEvent && !event.isLastEvent()) {
+            if (event.isLastEvent()) {
+                logger.info("WordPairSampler-{}: collected in vocabulary {} word types from a corpus of {} words.",
+                        id, vocab.size(), totalWords);
+                return true;
+            }
             IndexUpdateEvent update = (IndexUpdateEvent) event;
             totalWords += update.getWordCount();
             HashMap<String, Long> vocabUpdate = update.getVocab();
@@ -191,9 +196,8 @@ public class WordPairSampler implements Processor {
             vocabWord = vocabIter.next();
             count = vocabWord.getValue();
         }
-        String word = vocabWord.getKey();
+        index2word[widx] = vocabWord.getKey();
         double d1 = Math.pow(count, power) / normFactor;
-        index2word[widx] = word;
         for (int tidx = 0; tidx < tableSize; tidx++) {
             table[tidx] = widx;
             if ((double)tidx / tableSize > d1) {
@@ -205,10 +209,7 @@ public class WordPairSampler implements Processor {
                         vocabWord = vocabIter.next();
                         count = vocabWord.getValue();
                     }
-                    if (vocabIter.hasNext()) {
-                        word = vocabWord.getKey();
-                        index2word[widx] = word;
-                    }
+                    index2word[widx] = vocabWord.getKey();
                 }
                 d1 += Math.pow(count, power) / normFactor;
             }
