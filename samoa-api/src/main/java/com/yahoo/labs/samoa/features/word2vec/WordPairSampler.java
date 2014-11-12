@@ -85,7 +85,7 @@ public class WordPairSampler implements Processor {
 
     @Override
     public boolean process(ContentEvent event) {
-        if (event instanceof IndexUpdateEvent && !event.isLastEvent()) {
+        if (event instanceof IndexUpdateEvent) {
             if (event.isLastEvent()) {
                 logger.info("WordPairSampler-{}: collected in vocabulary {} word types from a corpus of {} words.",
                         id, vocab.size(), totalWords);
@@ -113,7 +113,7 @@ public class WordPairSampler implements Processor {
             if (event.isLastEvent()) {
                 logger.info("WordPairSampler-{}: collected {} word types from a corpus of {} words and {} sentences",
                         id, vocab.size(), totalWords, totalSentences);
-                outputStream.put(new WordPairEvent(null, null, true, true));
+                outputStream.put(new WordPairEvent(null, null, null, true));
                 return true;
             }
             if (!firstSentenceReceived) {
@@ -160,13 +160,15 @@ public class WordPairSampler implements Processor {
      */
     private void sendWordPairs(String word, String wordC) {
         // use this word (label = 1) + `negative` other random words not from this sentence (label = 0)
-        outputStream.put(new WordPairEvent(word, wordC, true, false));
+        ArrayList<String> wordsNeg = new ArrayList<String>(negative);
         for (int i = 0; i < negative; i++) {
             int neg = table[Random.nextInt(table.length)];
-            if (!index2word[neg].equals(word)) {
-                outputStream.put(new WordPairEvent(word, index2word[neg], false, false));
+            //FIXME if the condition is not met, word pair is not sent
+            if (!index2word[neg].equals(wordC)) {
+                wordsNeg.add(index2word[neg]);
             }
         }
+        outputStream.put(new WordPairEvent(word, wordC, wordsNeg, false));
     }
 
     // FIXME need a more fine and intelligent update, also to be asynchronous!
@@ -205,13 +207,15 @@ public class WordPairSampler implements Processor {
                 if (vocabIter.hasNext()) {
                     vocabWord = vocabIter.next();
                     count = vocabWord.getValue();
+                    index2word[widx] = vocabWord.getKey();
                     while (count < minCount && vocabIter.hasNext()) {
                         vocabWord = vocabIter.next();
                         count = vocabWord.getValue();
+                        index2word[widx] = vocabWord.getKey();
                     }
-                    index2word[widx] = vocabWord.getKey();
+                    d1 += Math.pow(count, power) / normFactor;
                 }
-                d1 += Math.pow(count, power) / normFactor;
+
             }
             if (widx >= vocabSize) {
                 widx = vocabSize - 1;

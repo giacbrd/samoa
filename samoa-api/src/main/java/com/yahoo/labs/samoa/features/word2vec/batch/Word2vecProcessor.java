@@ -37,15 +37,15 @@ import java.util.Arrays;
 public class Word2vecProcessor  implements EntranceProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(Word2vecProcessor.class);
-    private boolean save_model;
+    private String modelName;
     private  Word2vec w2v;
     private File file;
     private int id;
     private boolean isFinished;
 
-    public Word2vecProcessor(File file, boolean save_model) {
+    public Word2vecProcessor(File file, String modelName) {
         this.file = file;
-        this.save_model = save_model;
+        this.modelName = modelName;
     }
 
     public Word2vecProcessor(File file, Word2vec w2v) {
@@ -65,14 +65,14 @@ public class Word2vecProcessor  implements EntranceProcessor {
         SentencesIterable sit = new SentencesIterable(file);
         logger.info("Learning...");
         w2v = new Word2vec(sit, 200, 0.025, (short)5, (short)5, 0.0, 1, 0.0001, true, false, (short)10, false);
-        logger.info("Learning completed!\nTesting...");
+        logger.info("Learning completed! Testing...");
         ArrayList<ImmutablePair<String, Double>> results = w2v.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"anarchism"})), new ArrayList<String>(), 10);
         for (ImmutablePair<String, Double> p: results) {
             logger.info(p.getLeft() + " " + Double.toString(p.getRight()));
         }
-        if (save_model) {
+        if (modelName != null) {
             try {
-                w2v.save(new File("word2vec_model_" + this.id + "_" + this.hashCode()));
+                w2v.save(new File(this.modelName + "_batch_model"));
             } catch (IOException e) {
                 e.printStackTrace();
                 System.exit(1);

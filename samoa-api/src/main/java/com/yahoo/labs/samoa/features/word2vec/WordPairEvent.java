@@ -22,35 +22,23 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 
+import java.util.List;
+
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
 public class WordPairEvent implements ContentEvent {
 
     private final String word;
-
-    public String getWord() {
-        return word;
-    }
-
-    public String getWordC() {
-        return wordC;
-    }
-
-    public boolean isLabel() {
-        return label;
-    }
-
     private final String wordC;
+    private final List<String> wordsNeg;
     private String key;
-    private boolean label;
     private boolean isLastEvent;
 
-    public WordPairEvent(String word, String wordC, boolean label, boolean isLastEvent) {
-
+    public WordPairEvent(String word, String wordC, List<String> wordsNeg, boolean isLastEvent) {
         this.word = word;
         this.wordC = wordC;
-        this.label = label;
+        this.wordsNeg = wordsNeg;
         this.isLastEvent = isLastEvent;
     }
 
@@ -70,7 +58,16 @@ public class WordPairEvent implements ContentEvent {
         return isLastEvent;
     }
 
-    public boolean getLabel() {
-        return label;
+    public String getWord() {
+        return word;
     }
+
+    public String getWordC() {
+        return wordC;
+    }
+
+    public List<String> getWordsNeg() {
+        return wordsNeg;
+    }
+
 }

@@ -62,6 +62,7 @@ public class IndexGenerator implements Processor {
     }
 
     //FIXME time decay should be managed here?
+    //FIXME when remove words send also message to the learner/model
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
@@ -85,7 +86,7 @@ public class IndexGenerator implements Processor {
             String word = vocabWord.getKey();
             if (vocab.containsKey(word)) {
                 // We use Vocab (and not a map of <String, Integer>) just for the speed of this operation
-                vocab.put(word, vocab.get(word)+1);
+                vocab.put(word, vocab.get(word) + vocabWord.getValue());
             } else {
                 vocab.put(word, vocabWord.getValue());
             }
@@ -96,7 +97,7 @@ public class IndexGenerator implements Processor {
             logger.info("IndexGenerator-{}: after {} sentences, processed {} words and {} word types",
                     id, totalSentences, totalWords, vocab.size());
         }
-        outputStream.put(new IndexUpdateEvent(vocab, null, sentence.length, event.isLastEvent()));
+        outputStream.put(new IndexUpdateEvent(outVocab, null, sentence.length, event.isLastEvent()));
         return true;
     }
 

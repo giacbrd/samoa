@@ -21,12 +21,17 @@ package com.yahoo.labs.samoa.features.word2vec.batch;
  */
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
+import com.google.common.primitives.Ints;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jblas.DoubleMatrix;
 import org.jblas.MatrixFunctions;
@@ -151,12 +156,6 @@ public class Word2vec {
     }
 
     private int train_sentence(List<Vocab> sentence, double alpha) {
-        // Precompute labels used in the computation of the gradient (the true outputs)
-        DoubleMatrix labels = null;
-        if (negative > 0) {
-            labels = DoubleMatrix.zeros(negative + 1);
-            labels.put(0, 1.0);
-        }
         // Iterate through sentence words. For each word predict a word2 which is in the range of |window - reduced_window|
         for (int pos = 0; pos < sentence.size(); pos++) {
             Vocab word = sentence.get(pos);
@@ -174,7 +173,7 @@ public class Word2vec {
                 Vocab word2 = sentence2.get(pos2);
                 // don't train on OOV words and on the `word` itself
                 if (word2 != null && pos != pos2 + start) {
-                    train_pair(word, word2, alpha, labels);
+                    train_pair(word, word2, alpha);
                 }
             }
         }
@@ -187,22 +186,28 @@ public class Word2vec {
         return result;
     }
 
-    private void train_pair(Vocab word, Vocab word2, double alpha, DoubleMatrix labels) {
+    private void train_pair(Vocab word, Vocab word2, double alpha) {
         //FIXME add other methods
         // Get the word vector from matrix
         DoubleMatrix l1 = syn0.getRow(word2.index);
         // Get the indices of the contexts, the first is the "true" one
-        int[] C_indices = new int[negative+1];
+        ArrayList<Integer> C_indices = new ArrayList<Integer>(negative+1);
         // use this word (label = 1) + `negative` other random words not from this sentence (label = 0)
-        C_indices[0] = word.index;
-        for (int i = 1; i < C_indices.length; i++) {
+        C_indices.add(word.index);
+        for (int i = 1; i < negative+1; i++) {
             int neg_i = table[Random.nextInt(table.length)];
+            //FIXME if the condition is not met, C_indices[i] is 0
             if (neg_i != word.index) {
-                C_indices[i] = neg_i;
+                C_indices.add(neg_i);
             }
         }
+        DoubleMatrix labels = null;
+        if (negative > 0) {
+            labels = DoubleMatrix.zeros(C_indices.size());
+            labels.put(0, 1.0);
+        }
         // Matrix of vectors of contexts, the first is the "true" one
-        DoubleMatrix l2b = syn1neg.getRows(C_indices); //2d matrix, k+1 x layer1_size
+        DoubleMatrix l2b = syn1neg.getRows(Ints.toArray(C_indices)); //2d matrix, k+1 x layer1_size
         // Compute the outputs of the model, for the true context and the other negatives one (propagate hidden -> output)
         DoubleMatrix fb = MatrixFunctions.expi(l2b.mmul(l1.transpose()).negi());
         for (int i = 0; i < fb.length; i++) {
@@ -212,9 +217,9 @@ public class Word2vec {
         DoubleMatrix gb = (labels.sub(fb)).muli(alpha); // vector of error gradients multiplied by the learning rate
         // Now update matrices X and C
         // Learn C
-        for (int i = 0; i < C_indices.length; i++) {
+        for (int i = 0; i < C_indices.size(); i++) {
             for (int j = 0; j < syn1neg.columns; j++) {
-                syn1neg.put(C_indices[i], j, syn1neg.get(C_indices[i], j) + gb.get(i) * l1.get(j));
+                syn1neg.put(C_indices.get(i), j, syn1neg.get(C_indices.get(i), j) + gb.get(i) * l1.get(j));
             }
         }
         // Gradient error for learning W

@@ -52,12 +52,12 @@ public class Word2vecTask implements Task, Configurable {
             "Word2vecTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
     public FileOption inputFileOption = new FileOption("inputFile", 'i', "File with the list of sentences," +
             " one sentence per line, words are divided by a space", null, "txt", false);
-    public FlagOption saveModel = new FlagOption("saveModel", 's', "Save the model in the same path of the sentences file.");
     public IntOption precomputedSentences = new IntOption("precomputedSentences", 'p', "Number of sentences on which word" +
             "statistics are computed before starting the training on them", 5000);
     public IntOption wordPerSamplingUpdate = new IntOption("wordPerSamplingUpdate", 'u', "Number of indexed words" +
             "necessary for a new update of the table for negative sampling", 1000000);
     public IntOption minCount = new IntOption("minCount", 'c', "Ignore all words with total frequency lower than this", 5);
+    public FileOption modelOutput = new FileOption("modelOutput", 'o', "Directory where to save the model.", null, null, true);
 
     private TopologyBuilder builder;
     private Topology topology;
@@ -127,14 +127,14 @@ public class Word2vecTask implements Task, Configurable {
         wordPairSampler.setOutputStream(toLearner);
 
         // Learning
-        Learner learner = new Learner(0.025, 200);
-        builder.addProcessor(learner);
+        Learner learner = new Learner(0.025, 0.0001, 200);
+        builder.addProcessor(learner, 1);
         builder.connectInputAllStream(toLearner, learner);
         toModel = builder.createStream(learner);
         learner.setOutputStream(toModel);
 
         // Model container
-        model = new Model(new File(""));
+        model = new Model(modelOutput.getFile());
         builder.addProcessor(model);
         builder.connectInputAllStream(toModel, model);
 

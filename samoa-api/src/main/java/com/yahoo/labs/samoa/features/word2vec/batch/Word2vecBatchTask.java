@@ -47,7 +47,7 @@ public class Word2vecBatchTask  implements Task, Configurable {
     private TopologyBuilder builder;
 
     public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
-            "Word2vecTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            "Word2vecBatchTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
     public FileOption inputFileOption = new FileOption("inputFile", 'i', "File with the list of sentences," +
             " one sentence per line, words are divided by a space", null, "csv", false);
     public FlagOption saveModel = new FlagOption("saveModel", 's', "Save the model in the same path of the sentences file.");
@@ -65,7 +65,7 @@ public class Word2vecBatchTask  implements Task, Configurable {
     public void init() {
 
         //Learning
-        word2vecProcessor = new Word2vecProcessor(inputFileOption.getFile(), saveModel.isSet());
+        word2vecProcessor = new Word2vecProcessor(inputFileOption.getFile(), saveModel.isSet() ? w2vNameOption.getValue() : null);
         builder.addEntranceProcessor(word2vecProcessor);
         logger.debug("Successfully created Word2vec processor");
         nullStream = builder.createStream(word2vecProcessor);

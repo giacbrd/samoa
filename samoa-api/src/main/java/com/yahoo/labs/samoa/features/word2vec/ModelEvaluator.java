@@ -46,11 +46,36 @@ public class ModelEvaluator {
     private HashMap<String, ImmutablePair<DoubleMatrix, Long>> syn0norm;
 
     public void load(File path) throws IOException, ClassNotFoundException {
+        if ((new File(path.getAbsolutePath() + File.separator + "index2word")).exists()) {
+            loadBatch(path);
+            return;
+        }
         FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "syn0norm");
         ObjectInputStream ois = new ObjectInputStream(fis);
         syn0norm = (HashMap<String, ImmutablePair<DoubleMatrix, Long>>) ois.readObject();
         ois.close();
         fis.close();
+    }
+
+    public void loadBatch(File path) throws IOException, ClassNotFoundException {
+        FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "index2word");
+        ObjectInputStream ois = new ObjectInputStream(fis);
+        ArrayList<String> index2word = (ArrayList<String>) ois.readObject();
+        ois.close();
+        fis.close();
+        fis = new FileInputStream(path.getAbsolutePath() + File.separator + "vocab");
+        ois = new ObjectInputStream(fis);
+        HashMap<String, Vocab> vocab = (HashMap<String, Vocab>) ois.readObject();
+        ois.close();
+        fis.close();
+        DoubleMatrix syn0normM = new DoubleMatrix();
+        syn0normM.load(path.getAbsolutePath() + File.separator + "syn0norm");
+        syn0norm = new HashMap<String, ImmutablePair<DoubleMatrix, Long>>(index2word.size());
+        for (int i = 0; i < index2word.size(); i++) {
+            String word = index2word.get(i);
+            syn0norm.put(word, new ImmutablePair<DoubleMatrix, Long>(syn0normM.getRow(i).transpose(), (long) vocab.get(word).count));
+        }
+
     }
 
     /**
@@ -246,8 +271,10 @@ public class ModelEvaluator {
             e1.printStackTrace();
         }
 
-        logger.info(""+e.syn0norm.size());
+        logger.info("Number of words: "+e.syn0norm.size());
         logger.info(e.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>(), 10).toString());
+        logger.info(e.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"anarchism"})), new ArrayList<String>(), 10).toString());
+        //logger.info(e.similarity_vectors(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>()).get("devote").toString());
 
         try {
             e.accuracy(new File(args[1]), 30000);
