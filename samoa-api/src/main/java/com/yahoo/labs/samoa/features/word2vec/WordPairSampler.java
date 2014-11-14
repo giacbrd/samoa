@@ -35,7 +35,8 @@ import java.util.*;
 public class WordPairSampler implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(WordPairSampler.class);
-    private Stream outputStream;
+    private Stream learnerStream;
+    private Stream modelStream;
     private double subsamplThr;
     private HashMap<String, Long> vocab;
     private int id;
@@ -113,7 +114,7 @@ public class WordPairSampler implements Processor {
             if (event.isLastEvent()) {
                 logger.info("WordPairSampler-{}: collected {} word types from a corpus of {} words and {} sentences",
                         id, vocab.size(), totalWords, totalSentences);
-                outputStream.put(new WordPairEvent(null, null, null, true));
+                learnerStream.put(new WordPairEvent(null, null, null, true));
                 return true;
             }
             if (!firstSentenceReceived) {
@@ -168,7 +169,7 @@ public class WordPairSampler implements Processor {
                 wordsNeg.add(index2word[neg]);
             }
         }
-        outputStream.put(new WordPairEvent(word, wordC, wordsNeg, false));
+        learnerStream.put(new WordPairEvent(word, wordC, wordsNeg, false));
     }
 
     // FIXME need a more fine and intelligent update, also to be asynchronous!
@@ -236,6 +237,7 @@ public class WordPairSampler implements Processor {
                 }
             }
         }
+        modelStream.put(new OneContentEvent<ArrayList<String>>(sentence, false));
         return sentence;
     }
 
@@ -243,7 +245,8 @@ public class WordPairSampler implements Processor {
     public Processor newProcessor(Processor processor) {
         WordPairSampler p = (WordPairSampler) processor;
         WordPairSampler w = new WordPairSampler(p.wordsPerUpdate, p.minCount, p.subsamplThr, p.power, p.window, p.negative, p.tableSize);
-        w.outputStream = p.outputStream;
+        w.learnerStream = p.learnerStream;
+        w.modelStream = p.modelStream;
         w.totalWords = p.totalWords;
         // FIXME not good passing the reference if distributed?!
         w.vocab = p.vocab;
@@ -254,7 +257,10 @@ public class WordPairSampler implements Processor {
         return w;
     }
 
-    public void setOutputStream(Stream outputStream) {
-        this.outputStream = outputStream;
+    public void setLearnerStream(Stream learnerStream) {
+        this.learnerStream = learnerStream;
+    }
+    public void setModelStream(Stream modelStream) {
+        this.modelStream = modelStream;
     }
 }

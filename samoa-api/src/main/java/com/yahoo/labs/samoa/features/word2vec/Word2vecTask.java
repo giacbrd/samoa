@@ -23,7 +23,6 @@ package com.yahoo.labs.samoa.features.word2vec;
 import com.github.javacliparser.Configurable;
 import com.github.javacliparser.IntOption;
 import com.github.javacliparser.FileOption;
-import com.github.javacliparser.FlagOption;
 import com.github.javacliparser.StringOption;
 import com.yahoo.labs.samoa.tasks.Task;
 import com.yahoo.labs.samoa.topology.ComponentFactory;
@@ -35,7 +34,6 @@ import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -72,8 +70,9 @@ public class Word2vecTask implements Task, Configurable {
     private Stream toSampler1;
     private Stream toDistributor;
     private MultiDistributor sentenceRouter;
-    private Stream toModel;
+    private Stream learnerToModel;
     private Model model;
+    private Stream samplerToModel;
 
     @Override
     public void init() {
@@ -102,7 +101,6 @@ public class Word2vecTask implements Task, Configurable {
         sentenceRouter.setOutputStream(1, toBuffer);
 
         // Buffer sentences before sending to distribution
-        // FIXME parameter!
         buffer = new SentenceQueue(precomputedSentences.getValue());
         builder.addProcessor(buffer);
         builder.connectInputAllStream(toBuffer, buffer);
@@ -117,26 +115,29 @@ public class Word2vecTask implements Task, Configurable {
         indexGenerator.setOutputStream(toSampler2);
 
         // Sample and distribute word pairs
-        // FIXME parameter!
+        // FIXME parameters!
         wordPairSampler = new WordPairSampler(wordPerSamplingUpdate.getValue(), (short) minCount.getValue(),
                 0.0, 0.75, (short) 5, 10, 100000000);
         builder.addProcessor(wordPairSampler);
         builder.connectInputAllStream(toSampler1, wordPairSampler);
         builder.connectInputAllStream(toSampler2, wordPairSampler);
         toLearner = builder.createStream(wordPairSampler);
-        wordPairSampler.setOutputStream(toLearner);
+        samplerToModel = builder.createStream(wordPairSampler);
+        wordPairSampler.setLearnerStream(toLearner);
+        wordPairSampler.setModelStream(samplerToModel);
 
         // Learning
         Learner learner = new Learner(0.025, 0.0001, 200);
-        builder.addProcessor(learner, 1);
+        builder.addProcessor(learner);
         builder.connectInputAllStream(toLearner, learner);
-        toModel = builder.createStream(learner);
-        learner.setOutputStream(toModel);
+        learnerToModel = builder.createStream(learner);
+        learner.setOutputStream(learnerToModel);
 
         // Model container
         model = new Model(modelOutput.getFile());
         builder.addProcessor(model);
-        builder.connectInputAllStream(toModel, model);
+        builder.connectInputAllStream(samplerToModel, model);
+        builder.connectInputAllStream(learnerToModel, model);
 
         // build the topology
         topology = builder.build();

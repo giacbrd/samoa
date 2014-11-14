@@ -27,6 +27,7 @@ import com.yahoo.labs.samoa.features.word2vec.batch.Vocab;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.jblas.DoubleMatrix;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +44,7 @@ import static org.jblas.Geometry.normalize;
 public class ModelEvaluator {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelEvaluator.class);
-    private HashMap<String, ImmutablePair<DoubleMatrix, Long>> syn0norm;
+    private HashMap<String, MutablePair<DoubleMatrix, Long>> syn0norm;
 
     public void load(File path) throws IOException, ClassNotFoundException {
         if ((new File(path.getAbsolutePath() + File.separator + "index2word")).exists()) {
@@ -52,7 +53,7 @@ public class ModelEvaluator {
         }
         FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "syn0norm");
         ObjectInputStream ois = new ObjectInputStream(fis);
-        syn0norm = (HashMap<String, ImmutablePair<DoubleMatrix, Long>>) ois.readObject();
+        syn0norm = (HashMap<String, MutablePair<DoubleMatrix, Long>>) ois.readObject();
         ois.close();
         fis.close();
     }
@@ -70,10 +71,10 @@ public class ModelEvaluator {
         fis.close();
         DoubleMatrix syn0normM = new DoubleMatrix();
         syn0normM.load(path.getAbsolutePath() + File.separator + "syn0norm");
-        syn0norm = new HashMap<String, ImmutablePair<DoubleMatrix, Long>>(index2word.size());
+        syn0norm = new HashMap<>(index2word.size());
         for (int i = 0; i < index2word.size(); i++) {
             String word = index2word.get(i);
-            syn0norm.put(word, new ImmutablePair<DoubleMatrix, Long>(syn0normM.getRow(i).transpose(), (long) vocab.get(word).count));
+            syn0norm.put(word, new MutablePair<>(syn0normM.getRow(i).transpose(), (long) vocab.get(word).count));
         }
 
     }
@@ -173,20 +174,20 @@ public class ModelEvaluator {
                 }
             }
         }
-        Ordering<Map.Entry<String, ImmutablePair<DoubleMatrix, Long>>> by_values =
-                new Ordering<Map.Entry<String, ImmutablePair<DoubleMatrix, Long>>>() {
+        Ordering<Map.Entry<String, MutablePair<DoubleMatrix, Long>>> by_values =
+                new Ordering<Map.Entry<String, MutablePair<DoubleMatrix, Long>>>() {
             @Override
-            public int compare(Map.Entry<String, ImmutablePair<DoubleMatrix, Long>> left, Map.Entry<String, ImmutablePair<DoubleMatrix, Long>> right) {
+            public int compare(Map.Entry<String, MutablePair<DoubleMatrix, Long>> left, Map.Entry<String, MutablePair<DoubleMatrix, Long>> right) {
                 return Long.compare(right.getValue().getRight(), left.getValue().getRight());
             }
         };
 
-        List<Map.Entry<String, ImmutablePair<DoubleMatrix, Long>>> vocab_ordered = Lists.newArrayList(syn0norm.entrySet());
+        List<Map.Entry<String, MutablePair<DoubleMatrix, Long>>> vocab_ordered = Lists.newArrayList(syn0norm.entrySet());
         Collections.sort(vocab_ordered, by_values);
         vocab_ordered = vocab_ordered.subList(0, restrict_vocab);
         //TODO optimize this creation
         HashSet<String> ok_vocab = new HashSet<String>(vocab_ordered.size());
-        for (Map.Entry<String, ImmutablePair<DoubleMatrix, Long>> v: vocab_ordered) {
+        for (Map.Entry<String, MutablePair<DoubleMatrix, Long>> v: vocab_ordered) {
             ok_vocab.add(v.getKey());
         }
         Section section = null;
@@ -271,7 +272,12 @@ public class ModelEvaluator {
             e1.printStackTrace();
         }
 
-        logger.info("Number of words: "+e.syn0norm.size());
+        logger.info("Number of word types: "+e.syn0norm.size());
+        long wordOccurrences = 0;
+        for (String word: e.syn0norm.keySet()) {
+            wordOccurrences+=e.syn0norm.get(word).getRight();
+        }
+        logger.info("Sum of word counts: "+wordOccurrences);
         logger.info(e.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>(), 10).toString());
         logger.info(e.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"anarchism"})), new ArrayList<String>(), 10).toString());
         //logger.info(e.similarity_vectors(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>()).get("devote").toString());

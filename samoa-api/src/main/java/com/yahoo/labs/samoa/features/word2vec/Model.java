@@ -24,11 +24,13 @@ import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.topology.Stream;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.jblas.DoubleMatrix;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import static org.jblas.Geometry.normalize;
@@ -41,7 +43,7 @@ public class Model implements Processor {
     private static final Logger logger = LoggerFactory.getLogger(Model.class);
     private Stream outputStream;
     private int id;
-    private HashMap<String, ImmutablePair<DoubleMatrix, Long>> syn0norm;
+    private HashMap<String, MutablePair<DoubleMatrix, Long>> syn0norm;
     private File outPath;
 
     public Model() {
@@ -55,7 +57,7 @@ public class Model implements Processor {
     @Override
     public void onCreate(int id) {
         this.id = id;
-        syn0norm = new HashMap<String, ImmutablePair<DoubleMatrix, Long>>(1000000);
+        syn0norm = new HashMap<>(1000000);
     }
 
     @Override
@@ -81,13 +83,30 @@ public class Model implements Processor {
             //outputStream.put(new ModelUpdateEvent(null, null, true));
             return true;
         }
-        ModelUpdateEvent newRow = (ModelUpdateEvent) event;
-        String word = newRow.getWord();
-        long count = 0;
-        if (syn0norm.containsKey(word)) {
-            count = syn0norm.get(word).getRight();
+        if (event instanceof ModelUpdateEvent) {
+            ModelUpdateEvent newRow = (ModelUpdateEvent) event;
+            String word = newRow.getWord();
+            MutablePair<DoubleMatrix, Long> wordInfo = syn0norm.get(word);
+            if (wordInfo == null) {
+                wordInfo = new MutablePair<DoubleMatrix, Long>(normalize(newRow.getRow()), (long) 0);
+                syn0norm.put(word, wordInfo);
+            } else {
+                wordInfo.setLeft(normalize(newRow.getRow()));
+            }
+        } else if (event instanceof OneContentEvent) {
+            OneContentEvent sentence = (OneContentEvent) event;
+            for (String word: (ArrayList<String>) sentence.getContent()) {
+                MutablePair<DoubleMatrix, Long> wordInfo = syn0norm.get(word);
+                if (wordInfo == null) {
+                    wordInfo = new MutablePair<DoubleMatrix, Long>(null, (long) 1);
+                    syn0norm.put(word, wordInfo);
+                } else {
+                    wordInfo.setRight(wordInfo.getRight()+1);
+                }
+            }
+        } else {
+            return false;
         }
-        syn0norm.put(word, new ImmutablePair<DoubleMatrix, Long>(normalize(newRow.getRow()), count+1));
         return true;
     }
 

@@ -20,13 +20,11 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
-import com.google.common.primitives.Ints;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.topology.Stream;
 import org.jblas.DoubleMatrix;
 import org.jblas.MatrixFunctions;
-import org.jblas.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +44,7 @@ public class Learner implements Processor {
     private  HashMap<String, double[]> syn1neg;
     double alpha;
     private double minAlpha;
-    private double wordCount;
+    private long iterations;
 
     public Learner(double alpha, double minAlpha, int layer1Size) {
         this.alpha = alpha;
@@ -63,14 +61,14 @@ public class Learner implements Processor {
         this.id = id;
         syn0 = new HashMap<String, double[]>(1000000);
         syn1neg = new HashMap<String, double[]>(1000000);
-        wordCount = 0.0;
+        iterations = 0;
     }
 
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            logger.info(String.format("Learner-%d: finished at approx %d words",
-                    id, (int) wordCount));
+            logger.info(String.format("Learner-%d: finished after %d iterations",
+                    id, iterations));
             outputStream.put(new ModelUpdateEvent(null, null, true));
             return true;
         }
@@ -82,7 +80,7 @@ public class Learner implements Processor {
     }
 
     private DoubleMatrix trainPair(String word, String wordC, List<String> wordsNeg) {
-        wordCount+=1.0/(6.0*11.0); //FIXME HARDCODED!
+        iterations++;
         // Get the word vectors from matrices
         double[] l1Array = syn0.get(word);
         DoubleMatrix l1 = null;
@@ -107,7 +105,7 @@ public class Learner implements Processor {
             fb.put(i, 1.0 / (1.0 + fb.get(i)));
         }
         // Partial computation of the gradient (it misses the multiplication by the input vector)
-        //double alpha = Math.max(minAlpha, this.alpha * (1 - ((double) wordCount / 17005207))); //FIXME HARDCODED!
+        //double alpha = Math.max(minAlpha, this.alpha * (1 - ((double) iterations / 17005207))); //FIXME HARDCODED!
         // Partial computation of the gradient (it misses the multiplication by the input vector)
         DoubleMatrix gb = (labels.sub(fb)).muli(alpha); // vector of error gradients multiplied by the learning rate
         //logger.info(word + " " + wordC);
@@ -126,9 +124,9 @@ public class Learner implements Processor {
         //FIXME not necessary to put back l1? for now yes
         syn0.put(word, l1.addi(neu1e).toArray());
         //logger.info(WRow.toString() + "\n" + CRow.toString());
-        if (wordCount % 100000 == 0) {
-            logger.info(String.format("Learner-%d: at %d words (%.3f of total words), alpha %.5f",
-                    id, (int) wordCount, (double) wordCount / 17005207, alpha));
+        if (iterations % 100000 == 0) {
+            logger.info(String.format("Learner-%d: at %d iterations, alpha %.5f",
+                    id, iterations, alpha));
         }
         return l1;
     }
@@ -152,7 +150,7 @@ public class Learner implements Processor {
         l.outputStream = p.outputStream;
         l.syn0 = p.syn0;
         l.syn1neg = p.syn1neg;
-        l.wordCount = p.wordCount;
+        l.iterations = p.iterations;
         return l;
     }
 
