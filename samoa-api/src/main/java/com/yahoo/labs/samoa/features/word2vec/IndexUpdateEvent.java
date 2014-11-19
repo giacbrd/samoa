@@ -23,21 +23,23 @@ package com.yahoo.labs.samoa.features.word2vec;
 import com.yahoo.labs.samoa.core.ContentEvent;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
 public class IndexUpdateEvent implements ContentEvent {
 
-    private final HashMap<String, Long> vocab;
-    private final HashMap<Integer, String> index2word;
+    private final Map<String, Long> vocab;
+    private final Set<String> removeVocab;
     private long wordCount;
     private String key;
     private boolean isLastEvent;
 
-    public IndexUpdateEvent(HashMap<String, Long> vocab, HashMap<Integer, String> index2word, long wordCount, boolean isLastEvent) {
+    public IndexUpdateEvent(Map<String, Long> vocab, Set<String> removeVocab, long wordCount, boolean isLastEvent) {
         this.vocab = vocab;
-        this.index2word = index2word;
+        this.removeVocab = removeVocab;
         this.wordCount = wordCount;
         this.isLastEvent = isLastEvent;
     }
@@ -61,12 +63,12 @@ public class IndexUpdateEvent implements ContentEvent {
     public long getWordCount() {
         return wordCount;
     }
-    public HashMap<String, Long> getVocab() {
+    public Map<String, Long> getVocab() {
         return vocab;
     }
 
-    public HashMap<Integer, String> getIndex2word() {
-        return index2word;
+    public Set<String> getRemoveVocab() {
+        return removeVocab;
     }
 
 }

@@ -1,5 +1,4 @@
-package com.yahoo.labs.samoa.features;
-
+package com.yahoo.labs.samoa.features.counter;
 /*
  * #%L
  * SAMOA
@@ -20,12 +19,27 @@ package com.yahoo.labs.samoa.features;
  * #L%
  */
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import java.util.Iterator;
+import java.util.Map;
 
 /**
- * A feature learner generates features from a input stream
- * and it produces a data sample stream for learners (classifiers).
+ * Approximate element counts
  *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface FeatureLearner {
+public interface Counter<T> {
+    long size();
+
+    long put(T key, Long value);
+
+    long remove(T word);
+
+    long get(T word);
+
+    boolean containsKey(T word);
+
+    Iterator<Map.Entry<T,Long>> iterator();
 }
+//public interface Counter<T> extends Map<T, Long> {
+//}

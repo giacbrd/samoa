@@ -22,6 +22,8 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
+import com.yahoo.labs.samoa.features.counter.Counter;
+import com.yahoo.labs.samoa.features.counter.StreamSummary;
 import com.yahoo.labs.samoa.topology.Stream;
 import org.jblas.util.Random;
 import org.slf4j.Logger;
@@ -38,7 +40,7 @@ public class WordPairSampler implements Processor {
     private Stream learnerStream;
     private Stream modelStream;
     private double subsamplThr;
-    private HashMap<String, Long> vocab;
+    private Counter<String> vocab;
     private int id;
     long totalWords;
     private int wordsPerUpdate;
@@ -49,6 +51,7 @@ public class WordPairSampler implements Processor {
     private short window;
     private int[] table;
     private int tableSize;
+    //FIXME use hash values instead of strings (from IndexGenerator to the model)
     private String[] index2word;
     private int negative;
     private boolean firstSentenceReceived;
@@ -80,7 +83,7 @@ public class WordPairSampler implements Processor {
         this.id = id;
         totalWords = 0;
         normFactor = 1.0;
-        vocab = new HashMap<String, Long>(1000000);
+        vocab = new StreamSummary<String>(100000000);
         firstSentenceReceived = false;
     }
 
@@ -94,16 +97,14 @@ public class WordPairSampler implements Processor {
             }
             IndexUpdateEvent update = (IndexUpdateEvent) event;
             totalWords += update.getWordCount();
-            HashMap<String, Long> vocabUpdate = update.getVocab();
-            for (Map.Entry<String, Long> vocabWord: vocabUpdate.entrySet()) {
-                String word = vocabWord.getKey();
-                long count = vocabWord.getValue();
-                // Received a word deletion update
-                if (count == 0 && vocab.containsKey(word)) {
-                    vocab.remove(word);
-                } else {
-                    vocab.put(word, count);
-                }
+            // Update local vocabulary
+            Map<String, Long> vocabUpdate = update.getVocab();
+            for(Map.Entry<String, Long> v: vocabUpdate.entrySet()) {
+                vocab.put(v.getKey(), v.getValue());
+            }
+            Set<String> removeUpdate = update.getRemoveVocab();
+            for(String word: removeUpdate) {
+                vocab.remove(word);
             }
             // Update the noise distribution of negative sampling
             if (totalWords % wordsPerUpdate == 0 && totalWords > 0 && firstSentenceReceived) {
@@ -179,9 +180,11 @@ public class WordPairSampler implements Processor {
         //compute sum of all power (Z in paper)
         normFactor = 0.0;
         int vocabSize = 0;
-        for (Map.Entry<String, Long> vocabWord: vocab.entrySet()) {
-            if (vocabWord.getValue() >= minCount) {
-                normFactor += Math.pow(vocabWord.getValue(), power);
+        Iterator<Map.Entry<String, Long>> vocabIter = vocab.iterator();
+        while (vocabIter.hasNext()) {
+            long count = vocabIter.next().getValue();
+            if (count >= minCount) {
+                normFactor += Math.pow(count, power);
                 vocabSize++;
             }
         }
@@ -192,7 +195,7 @@ public class WordPairSampler implements Processor {
         int widx = 0;
         // normalize count^0.75 by Z
         //FIXME optimize the code till the function end
-        Iterator<Map.Entry<String, Long>> vocabIter = vocab.entrySet().iterator();
+        vocabIter = vocab.iterator();
         Map.Entry<String, Long> vocabWord = vocabIter.next();
         long count = vocabWord.getValue();
         while (count < minCount && vocabIter.hasNext()) {

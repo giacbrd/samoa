@@ -20,15 +20,17 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
+import com.google.common.cache.*;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.topology.Stream;
+import org.apache.commons.collections.FastHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
@@ -41,8 +43,9 @@ public class IndexGenerator implements Processor {
     private Stream outputStream;
     private long totalSentences = 0;
     //FIXME use Guava CacheBuilder?!
-    private HashMap<String, Long> vocab;
+    private LoadingCache<String, Long> vocab;
     private long totalWords = 0;
+    private Set<String> removeVocab;
 
 
     public IndexGenerator(long totalWords, long totalSentences) {
@@ -57,8 +60,30 @@ public class IndexGenerator implements Processor {
     @Override
     public void onCreate(int id) {
         this.id = id;
+        removeVocab = new HashSet<>();
+        RemovalListener<String, Long> removalListener = new RemovalListener<String, Long>() {
+            public void onRemoval(RemovalNotification<String, Long> removal) {
+                removeVocab.add(removal.getKey());
+            }
+        };
         // FIXME the map size has to be carefully chosen (look at also at vocabs in other classes)
-        vocab = new HashMap<String, Long>(1000000);
+        vocab = CacheBuilder.newBuilder()
+                .maximumSize(100000000)
+                .expireAfterWrite(24, TimeUnit.HOURS)
+//                .maximumWeight(125000000)
+//                .weigher(
+//                        new Weigher<String, Long>() {
+//                            public int weigh(String key, Long value) {
+//                                return key.length();
+//                            }
+//                        })
+                .removalListener(removalListener)
+                .build(
+                        new CacheLoader<String, Long>() {
+                            public Long load(String key) {
+                                return (long) 0;
+                            }
+                        });
     }
 
     //FIXME time decay should be managed here?
@@ -84,20 +109,25 @@ public class IndexGenerator implements Processor {
         while (vocabIter.hasNext()) {
             Map.Entry<String, Long> vocabWord = vocabIter.next();
             String word = vocabWord.getKey();
-            if (vocab.containsKey(word)) {
-                // We use Vocab (and not a map of <String, Integer>) just for the speed of this operation
-                vocab.put(word, vocab.get(word) + vocabWord.getValue());
-            } else {
-                vocab.put(word, vocabWord.getValue());
+            long newCount = 0;
+            try {
+                newCount = vocab.get(word) + vocabWord.getValue();
+            } catch (ExecutionException e) {
+                logger.error("Cache access error for word: " + word);
+                e.printStackTrace();
             }
-            outVocab.put(word, vocab.get(word));
+            vocab.put(word, newCount);
+            outVocab.put(word, newCount);
         }
 //        logger.info("total {} word types after removing those with count<{}", vocab.size(), min_count);
         if (totalSentences % 1000 == 0 && totalSentences > 0) {
             logger.info("IndexGenerator-{}: after {} sentences, processed {} words and {} word types",
                     id, totalSentences, totalWords, vocab.size());
         }
-        outputStream.put(new IndexUpdateEvent(outVocab, null, sentence.length, event.isLastEvent()));
+        // Do not remove just occurred words
+        removeVocab.removeAll(outVocab.keySet());
+        outputStream.put(new IndexUpdateEvent(outVocab, removeVocab, sentence.length, event.isLastEvent()));
+        removeVocab = new HashSet<>();
         return true;
     }
 
@@ -105,9 +135,9 @@ public class IndexGenerator implements Processor {
         HashMap<String, Long> currVocab = new HashMap<String, Long>(sentence.length);
         for (String word:sentence) {
             if (currVocab.containsKey(word)) {
-                currVocab.put(word, currVocab.get(word)+1);
+                currVocab.put(word, currVocab.get(word) + 1);
             } else {
-                currVocab.put(word, (long)1);
+                currVocab.put(word, (long) 1);
             }
         }
         return currVocab;
@@ -121,6 +151,7 @@ public class IndexGenerator implements Processor {
         i.outputStream = p.outputStream;
         // FIXME not good passing the reference if distributed?!
         i.vocab = p.vocab;
+        i.removeVocab = p.removeVocab;
         return i;
     }
 
