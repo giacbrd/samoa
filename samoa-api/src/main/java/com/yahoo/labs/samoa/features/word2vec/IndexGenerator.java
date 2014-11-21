@@ -20,6 +20,7 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
+import com.github.javacliparser.IntOption;
 import com.google.common.cache.*;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
@@ -39,37 +40,49 @@ public class IndexGenerator implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(IndexGenerator.class);
 
+    public IntOption cacheSizeOption = new IntOption("cacheSize", 'c', "The max number of elements in the main memory " +
+            "cache.", 100000000);
+    public IntOption wordExpiryOption = new IntOption("wordExpiry", 'e', "If a word does not occur in the stream after " +
+            "this time (in minutes), it is removed from the index and the model.", 24*60);
+    public IntOption minCountOption = new IntOption("minCount", 'm', "Ignore all words with total frequency lower than this.", 5);
+
     private int id;
     private Stream outputStream;
     private long totalSentences = 0;
-    //FIXME use Guava CacheBuilder?!
+    private long cacheSize;
+    private long wordExpiry;
     private LoadingCache<String, Long> vocab;
     private long totalWords = 0;
-    private Set<String> removeVocab;
+    private Map<String, Long> removeVocab;
+    private short minCount;
 
 
-    public IndexGenerator(long totalWords, long totalSentences) {
-        this.totalWords = totalWords;
-        this.totalSentences = totalSentences;
+    public IndexGenerator(long cacheSize, long wordExpiry, short minCount) {
+        this.cacheSize = cacheSize;
+        this.wordExpiry = wordExpiry;
+        this.minCount = minCount;
     }
 
-    public IndexGenerator() {
-        this(0, 0);
-    }
+    public IndexGenerator() {};
 
     @Override
     public void onCreate(int id) {
         this.id = id;
-        removeVocab = new HashSet<>();
+        this.cacheSize = cacheSizeOption.getValue();
+        this.wordExpiry = wordExpiryOption.getValue();
+        this.minCount = (short) minCountOption.getValue();
+        removeVocab = new HashMap<>();
         RemovalListener<String, Long> removalListener = new RemovalListener<String, Long>() {
             public void onRemoval(RemovalNotification<String, Long> removal) {
-                removeVocab.add(removal.getKey());
+                if (removal.getCause() != RemovalCause.REPLACED) {
+                    logger.debug("Remove from cache: " + removal.getKey() + ". Cause: " + removal.getCause().toString());
+                    removeVocab.put(removal.getKey(), removal.getValue());
+                }
             }
         };
-        // FIXME the map size has to be carefully chosen (look at also at vocabs in other classes)
         vocab = CacheBuilder.newBuilder()
-                .maximumSize(100000000)
-                .expireAfterWrite(24, TimeUnit.HOURS)
+                .maximumSize(cacheSize)
+                .expireAfterWrite(wordExpiry, TimeUnit.MINUTES)
 //                .maximumWeight(125000000)
 //                .weigher(
 //                        new Weigher<String, Long>() {
@@ -86,7 +99,6 @@ public class IndexGenerator implements Processor {
                         });
     }
 
-    //FIXME time decay should be managed here?
     //FIXME when remove words send also message to the learner/model
     @Override
     public boolean process(ContentEvent event) {
@@ -97,27 +109,29 @@ public class IndexGenerator implements Processor {
             return true;
         }
         OneContentEvent content = (OneContentEvent) event;
-        // FIXME this assumes words are divided by a space
-        String[] sentence = ((String) content.getContent()).split(" ");
-        totalWords += sentence.length;
+        List<String> sentence = (List<String>) content.getContent();
+        totalWords += sentence.size();
         totalSentences++;
-        // TODO send only currVocab to the learner? if not work directly on vocab
+        long wordCount = 0;
         HashMap<String, Long> currVocab = sentenceVocab(sentence);
         HashMap<String, Long> outVocab = new HashMap<String, Long>(currVocab.size());
         Iterator<Map.Entry<String, Long>> vocabIter = currVocab.entrySet().iterator();
-        // FIXME here communications with redis for old words
         while (vocabIter.hasNext()) {
             Map.Entry<String, Long> vocabWord = vocabIter.next();
             String word = vocabWord.getKey();
+            long currCount = vocabWord.getValue();
             long newCount = 0;
             try {
-                newCount = vocab.get(word) + vocabWord.getValue();
+                newCount = vocab.get(word) + currCount;
             } catch (ExecutionException e) {
                 logger.error("Cache access error for word: " + word);
                 e.printStackTrace();
             }
             vocab.put(word, newCount);
-            outVocab.put(word, newCount);
+            if (newCount >= minCount) {
+                outVocab.put(word, newCount);
+                wordCount += currCount;
+            }
         }
 //        logger.info("total {} word types after removing those with count<{}", vocab.size(), min_count);
         if (totalSentences % 1000 == 0 && totalSentences > 0) {
@@ -125,14 +139,20 @@ public class IndexGenerator implements Processor {
                     id, totalSentences, totalWords, vocab.size());
         }
         // Do not remove just occurred words
-        removeVocab.removeAll(outVocab.keySet());
-        outputStream.put(new IndexUpdateEvent(outVocab, removeVocab, sentence.length, event.isLastEvent()));
-        removeVocab = new HashSet<>();
+        removeVocab.keySet().removeAll(outVocab.keySet());
+        long removeCount = 0;
+        for (String word: removeVocab.keySet()) {
+            removeCount += removeVocab.get(word);
+        }
+        if (wordCount != 0 || removeCount != 0) {
+            outputStream.put(new IndexUpdateEvent(outVocab, removeVocab.keySet(), wordCount - removeCount, event.isLastEvent()));
+        }
+        removeVocab = new HashMap<>();
         return true;
     }
 
-    private HashMap<String, Long> sentenceVocab(String[] sentence) {
-        HashMap<String, Long> currVocab = new HashMap<String, Long>(sentence.length);
+    private HashMap<String, Long> sentenceVocab(List<String> sentence) {
+        HashMap<String, Long> currVocab = new HashMap<String, Long>(sentence.size());
         for (String word:sentence) {
             if (currVocab.containsKey(word)) {
                 currVocab.put(word, currVocab.get(word) + 1);
@@ -147,9 +167,14 @@ public class IndexGenerator implements Processor {
     @Override
     public Processor newProcessor(Processor processor) {
         IndexGenerator p = (IndexGenerator) processor;
-        IndexGenerator i = new IndexGenerator(p.totalWords, p.totalSentences);
+        IndexGenerator i = new IndexGenerator(p.cacheSize, p.wordExpiry, p.minCount);
+        i.cacheSizeOption = p.cacheSizeOption;
+        i.wordExpiryOption = p.wordExpiryOption;
+        i.minCountOption = p.minCountOption;
+        i.totalWords = p.totalWords;
+        i.totalSentences = p.totalSentences;
         i.outputStream = p.outputStream;
-        // FIXME not good passing the reference if distributed?!
+        // FIXME passing the reference is not good if distributed?!
         i.vocab = p.vocab;
         i.removeVocab = p.removeVocab;
         return i;

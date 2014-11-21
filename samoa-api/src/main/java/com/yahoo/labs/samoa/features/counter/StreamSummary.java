@@ -428,7 +428,7 @@ public class StreamSummary<T> implements Counter<T> {
     /**
      * @return number of items stored
      */
-    public long size() {
+    public int size() {
         return counterMap.size();
     }
 
@@ -444,12 +444,6 @@ public class StreamSummary<T> implements Counter<T> {
         return count((T) key);
     }
 
-    /**
-     * The value is changed only if it is grater then the current count
-     * @param key
-     * @param value
-     * @return
-     */
     public long put(T key, Long value) {
         T item = (T) key;
         long increment = value - count(item);
@@ -462,7 +456,7 @@ public class StreamSummary<T> implements Counter<T> {
 
     @Override
     public Iterator<Map.Entry<T, Long>> iterator() {
-        return  new Iterator<Map.Entry<T, Long>>() {
+        return new Iterator<Map.Entry<T, Long>>() {
             private final Iterator<Map.Entry<T, ListNode2<ItemCount<T>>>> iterator = counterMap.entrySet().iterator();
             @Override
             public boolean hasNext() {

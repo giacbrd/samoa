@@ -20,6 +20,8 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
+import com.github.javacliparser.FloatOption;
+import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.features.counter.Counter;
@@ -34,9 +36,25 @@ import java.util.*;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class WordPairSampler implements Processor {
+public class WordSampler implements Processor {
 
-    private static final Logger logger = LoggerFactory.getLogger(WordPairSampler.class);
+    private static final Logger logger = LoggerFactory.getLogger(WordSampler.class);
+
+    public IntOption wordsPerUpdateOption = new IntOption("wordsPerUpdateOption", 'u', "Number of word index updates" +
+            "necessary for a new update of the table for negative sampling.", 1000000);
+    public IntOption minCountOption = new IntOption("minCount", 'm', "Ignore all words with total frequency lower than this.", 5);
+    public FloatOption subsamplThrOption = new FloatOption("subsampleThreshold", 's', "Threshold in words sub-sampling, " +
+            "the t parameter in the article.", 0.0);
+    public FloatOption powerOption = new FloatOption("power", 'p', "The power parameter in the unigram distribution for" +
+            "negative sampling.", 0.75);
+    public IntOption windowOption = new IntOption("window", 'w', "The size of the window context for each word occurrence.", 5);
+    public IntOption tableSizeOption = new IntOption("tableSize", 't', "The size of the table for negative sampling.",
+            100000000);
+    public IntOption negativeOption = new IntOption("negative", 'n', "The number of negative samples, the k parameter " +
+            "in the article.", 10);
+    public IntOption capacityOption = new IntOption("capacity", 'c', "The capacity of the counter for word counts " +
+            "estimation.", 100000000);
+
     private Stream learnerStream;
     private Stream modelStream;
     private double subsamplThr;
@@ -46,16 +64,17 @@ public class WordPairSampler implements Processor {
     private int wordsPerUpdate;
     private Double normFactor;
     private double power;
-    /* Minimum frequency for a word, in respect to the current vocabulary */
-    private short minCount;
     private short window;
     private int[] table;
     private int tableSize;
+    private long seed = 1;
+    private int capacity;
     //FIXME use hash values instead of strings (from IndexGenerator to the model)
     private String[] index2word;
     private int negative;
     private boolean firstSentenceReceived;
     private int totalSentences;
+    private long wordUpdates;
 
     /**
      * @param wordsPerUpdate Number of words after for update of the normalization factor (Z in the paper)
@@ -64,34 +83,43 @@ public class WordPairSampler implements Processor {
      * @param window
      *
      */
-    public WordPairSampler(int wordsPerUpdate, short minCount, double subsamplThr, double power, short window, int negative, int tableSize) {
+    public WordSampler(int wordsPerUpdate, double subsamplThr, double power, short window,
+                       int negative, int tableSize, int capacity, long seed) {
         this.wordsPerUpdate = wordsPerUpdate;
-        this.minCount = minCount;
         this.subsamplThr = subsamplThr;
         this.power = power;
         this.window = window;
         this.negative = negative;
         this.tableSize = tableSize;
+        this.capacity = capacity;
+        this.seed = seed;
     }
 
-    public WordPairSampler(int wordsPerUpdate) {
-        this(wordsPerUpdate, (short) 5, 0.0, 0.75, (short) 5, 10, 100000000);
-    }
+    public WordSampler() {};
 
     @Override
     public void onCreate(int id) {
         this.id = id;
+        this.wordsPerUpdate = wordsPerUpdateOption.getValue();
+        this.subsamplThr = subsamplThrOption.getValue();
+        this.power = powerOption.getValue();
+        this.window = (short) windowOption.getValue();
+        this.negative = negativeOption.getValue();
+        this.tableSize = tableSizeOption.getValue();
+        this.capacity = capacityOption.getValue();
         totalWords = 0;
         normFactor = 1.0;
-        vocab = new StreamSummary<String>(100000000);
+        wordUpdates = 0;
+        vocab = new StreamSummary<String>(capacity);
         firstSentenceReceived = false;
+        Random.seed(seed);
     }
 
     @Override
     public boolean process(ContentEvent event) {
         if (event instanceof IndexUpdateEvent) {
             if (event.isLastEvent()) {
-                logger.info("WordPairSampler-{}: collected in vocabulary {} word types from a corpus of {} words.",
+                logger.info("WordSampler-{}: collected in vocabulary {} word types from a corpus of {} words.",
                         id, vocab.size(), totalWords);
                 return true;
             }
@@ -99,6 +127,7 @@ public class WordPairSampler implements Processor {
             totalWords += update.getWordCount();
             // Update local vocabulary
             Map<String, Long> vocabUpdate = update.getVocab();
+            wordUpdates += vocabUpdate.size();
             for(Map.Entry<String, Long> v: vocabUpdate.entrySet()) {
                 vocab.put(v.getKey(), v.getValue());
             }
@@ -107,28 +136,29 @@ public class WordPairSampler implements Processor {
                 vocab.remove(word);
             }
             // Update the noise distribution of negative sampling
-            if (totalWords % wordsPerUpdate == 0 && totalWords > 0 && firstSentenceReceived) {
+            if (wordUpdates % wordsPerUpdate == 0 && !(vocabUpdate.isEmpty() && removeUpdate.isEmpty()) && firstSentenceReceived) {
                 updateNegativeSampling();
             }
         // When this type of events start to arrive, the vocabulary is already well filled
         } else if (event instanceof OneContentEvent) {
             if (event.isLastEvent()) {
-                logger.info("WordPairSampler-{}: collected {} word types from a corpus of {} words and {} sentences",
+                logger.info("WordSampler-{}: collected {} word types from a corpus of {} words and {} sentences",
                         id, vocab.size(), totalWords, totalSentences);
                 learnerStream.put(new WordPairEvent(null, null, null, true));
                 return true;
             }
             if (!firstSentenceReceived) {
                 firstSentenceReceived = true;
-                logger.info("WordPairSampler-{}: starting sampling sentences, processed {} words and {} word types",
+                logger.info("WordSampler-{}: starting sampling sentences, the vocabulary contains {} words and {} word types",
                         id, totalWords, vocab.size());
-                updateNegativeSampling();
+                if (totalWords > 0) {
+                    updateNegativeSampling();
+                }
             }
             totalSentences++;
             OneContentEvent content = (OneContentEvent) event;
-            // FIXME this assumes words are divided by a space
-            String[] contentSentence = ((String) content.getContent()).split(" ");
-            ArrayList<String> sentence = sampleSentence(contentSentence);
+            List<String> contentSentence = (List<String>) content.getContent();
+            List<String> sentence = sampleSentence(contentSentence);
             // Iterate through sentence words. For each word in context (wordC) predict a word which is in the range of |window - reduced_window|
             for (int pos = 0; pos < sentence.size(); pos++) {
                 String wordC = sentence.get(pos);
@@ -149,7 +179,7 @@ public class WordPairSampler implements Processor {
             }
         }
         if (totalSentences % 1000 == 0 && totalSentences > 0) {
-            logger.info("WordPairSampler-{}: after {} sentences, processed {} words and {} word types",
+            logger.info("WordSampler-{}: after {} sentences, the vocabulary contains {} words and {} word types",
                     id, totalSentences, totalWords, vocab.size());
         }
         return true;
@@ -165,7 +195,7 @@ public class WordPairSampler implements Processor {
         ArrayList<String> wordsNeg = new ArrayList<String>(negative);
         for (int i = 0; i < negative; i++) {
             int neg = table[Random.nextInt(table.length)];
-            //FIXME if the condition is not met, word pair is not sent
+            //FIXME if the condition is not met, word pair is not sent (the original word2vec does the same)
             if (!index2word[neg].equals(wordC)) {
                 wordsNeg.add(index2word[neg]);
             }
@@ -174,35 +204,24 @@ public class WordPairSampler implements Processor {
     }
 
     // FIXME need a more fine and intelligent update, also to be asynchronous!
-    // FIXME avoid the use of the vocabulary, so this class dont need it anymore
     private void updateNegativeSampling() {
         table = new int[tableSize]; //table (= list of words) of noise distribution for negative sampling
         //compute sum of all power (Z in paper)
         normFactor = 0.0;
-        int vocabSize = 0;
+        int vocabSize = vocab.size();
         Iterator<Map.Entry<String, Long>> vocabIter = vocab.iterator();
         while (vocabIter.hasNext()) {
-            long count = vocabIter.next().getValue();
-            if (count >= minCount) {
-                normFactor += Math.pow(count, power);
-                vocabSize++;
-            }
+            normFactor += Math.pow(vocabIter.next().getValue(), power);
         }
-        //FIXME logger.debug
-        logger.info("WordPairSampler-{}: constructing a table with noise distribution from {} words", id, vocabSize);
+        logger.info("WordSampler-{}: constructing a table with noise distribution from {} words", id, vocabSize);
         index2word = new String[vocabSize];
         //go through the whole table and fill it up with the word indexes proportional to a word's count**power
         int widx = 0;
-        // normalize count^0.75 by Z
-        //FIXME optimize the code till the function end
         vocabIter = vocab.iterator();
         Map.Entry<String, Long> vocabWord = vocabIter.next();
         long count = vocabWord.getValue();
-        while (count < minCount && vocabIter.hasNext()) {
-            vocabWord = vocabIter.next();
-            count = vocabWord.getValue();
-        }
         index2word[widx] = vocabWord.getKey();
+        // normalize count^0.75 by Z
         double d1 = Math.pow(count, power) / normFactor;
         for (int tidx = 0; tidx < tableSize; tidx++) {
             table[tidx] = widx;
@@ -212,11 +231,6 @@ public class WordPairSampler implements Processor {
                     vocabWord = vocabIter.next();
                     count = vocabWord.getValue();
                     index2word[widx] = vocabWord.getKey();
-                    while (count < minCount && vocabIter.hasNext()) {
-                        vocabWord = vocabIter.next();
-                        count = vocabWord.getValue();
-                        index2word[widx] = vocabWord.getKey();
-                    }
                     d1 += Math.pow(count, power) / normFactor;
                 }
 
@@ -227,27 +241,39 @@ public class WordPairSampler implements Processor {
         }
     }
 
-    private ArrayList<String> sampleSentence(String[] contentSentence) {
+    private ArrayList<String> sampleSentence(List<String> contentSentence) {
         ArrayList<String> sentence = new ArrayList<String>();
         for (String word: contentSentence) {
             if (vocab.containsKey(word)) {
                 long count = vocab.get(word);
                 // Subsampling probability
                 double prob = Math.min(subsamplThr > 0 ? Math.sqrt(subsamplThr / ((double)count / totalWords)) : 1.0, 1.0);
-                // Words sampling, take not too frequent or too infrequent words
-                if (count >= minCount && (prob >= 1.0 || prob >= Random.nextDouble())) {
+                if (prob >= 1.0 || prob >= Random.nextDouble()) {
                     sentence.add(word);
                 }
             }
         }
-        modelStream.put(new OneContentEvent<ArrayList<String>>(sentence, false));
+        modelStream.put(new OneContentEvent<List<String>>(sentence, false));
         return sentence;
     }
 
+    public void setSeed(long seed) {
+        this.seed = seed;
+    }
+
+
     @Override
     public Processor newProcessor(Processor processor) {
-        WordPairSampler p = (WordPairSampler) processor;
-        WordPairSampler w = new WordPairSampler(p.wordsPerUpdate, p.minCount, p.subsamplThr, p.power, p.window, p.negative, p.tableSize);
+        WordSampler p = (WordSampler) processor;
+        WordSampler w = new WordSampler(p.wordsPerUpdate, p.subsamplThr, p.power, p.window,
+                p.negative, p.tableSize, p.capacity, p.seed);
+        w.wordsPerUpdateOption = p.wordsPerUpdateOption;
+        w.subsamplThrOption = p.subsamplThrOption;
+        w.powerOption = p.powerOption;
+        w.windowOption = p.windowOption;
+        w.negativeOption = p.negativeOption;
+        w.tableSizeOption = p.tableSizeOption;
+        w.capacityOption = p.capacityOption;
         w.learnerStream = p.learnerStream;
         w.modelStream = p.modelStream;
         w.totalWords = p.totalWords;
@@ -257,6 +283,7 @@ public class WordPairSampler implements Processor {
         w.table = p.table;
         w.index2word = p.index2word;
         w.totalSentences = p.totalSentences;
+        w.wordUpdates = p.wordUpdates;
         return w;
     }
 

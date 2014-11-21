@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
+import java.util.List;
 
 
 /**
@@ -40,7 +41,7 @@ public class SentenceQueue implements Processor {
     private int id;
     private Stream outputStream;
     private long totalBytes = 0;
-    ArrayDeque<String> queue;
+    ArrayDeque<List<String>> queue;
     private String charset;
 
 
@@ -51,7 +52,7 @@ public class SentenceQueue implements Processor {
     @Override
     public void onCreate(int id) {
         this.id = id;
-        queue = new ArrayDeque<String>((int) this.maxSentences);
+        queue = new ArrayDeque<List<String>>((int) this.maxSentences);
         totalBytes = 0;
         // FIXME assumes utf8
         charset = "UTF-8";
@@ -70,9 +71,11 @@ public class SentenceQueue implements Processor {
             OneContentEvent contentEvent = (OneContentEvent) event;
             Object content = contentEvent.getContent();
             if (content != null) {
-                String sentence = (String) content;
+                List<String> sentence = (List<String>) content;
                 queue.addFirst(sentence);
-                totalBytes += sentence.getBytes(charset).length;
+                for (String word: sentence) {
+                    totalBytes += word.getBytes(charset).length;
+                }
             }
             while (queue.size() >= maxSentences) {
                 pollSentence();
@@ -86,10 +89,12 @@ public class SentenceQueue implements Processor {
     }
 
     private void pollSentence() throws UnsupportedEncodingException {
-        String outSentence = queue.pollLast();
+        List<String> outSentence = queue.pollLast();
         if (outSentence != null) {
-            totalBytes -= outSentence.getBytes(charset).length;
-            outputStream.put(new OneContentEvent<String>(outSentence, false));
+            for (String word: outSentence) {
+                totalBytes -= word.getBytes(charset).length;
+            }
+            outputStream.put(new OneContentEvent<List<String>>(outSentence, false));
         }
     }
 

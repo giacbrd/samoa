@@ -29,8 +29,14 @@ import java.util.Map;
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
 public interface Counter<T> {
-    long size();
 
+    int size();
+    /**
+     * The value is changed only if it is grater then the current count
+     * @param key
+     * @param value
+     * @return
+     */
     long put(T key, Long value);
 
     long remove(T word);

@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import static org.jblas.Geometry.normalize;
 
@@ -95,7 +96,7 @@ public class Model implements Processor {
             }
         } else if (event instanceof OneContentEvent) {
             OneContentEvent sentence = (OneContentEvent) event;
-            for (String word: (ArrayList<String>) sentence.getContent()) {
+            for (String word: (List<String>) sentence.getContent()) {
                 MutablePair<DoubleMatrix, Long> wordInfo = syn0norm.get(word);
                 if (wordInfo == null) {
                     wordInfo = new MutablePair<DoubleMatrix, Long>(null, (long) 1);

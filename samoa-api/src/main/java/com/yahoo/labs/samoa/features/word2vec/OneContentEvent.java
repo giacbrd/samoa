@@ -35,6 +35,12 @@ public class OneContentEvent<T> implements ContentEvent {
         this.content = content;
         this.isLastEvent = isLastEvent;
     }
+    public OneContentEvent(T content, boolean isLastEvent, String key) {
+        this.content = content;
+        this.isLastEvent = isLastEvent;
+        this.key = key;
+    }
+
 
     @Override
     public String getKey() {

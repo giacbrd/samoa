@@ -41,19 +41,21 @@ public class Learner implements Processor {
     // FIXME substitute double[] with DoubleMatrix, BE AWARE OF THE BUG
     private HashMap<String, double[]> syn0;
     private int layer1Size;
+    private long seed;
     private  HashMap<String, double[]> syn1neg;
     double alpha;
     private double minAlpha;
     private long iterations;
 
-    public Learner(double alpha, double minAlpha, int layer1Size) {
+    public Learner(double alpha, double minAlpha, int layer1Size, long seed) {
         this.alpha = alpha;
         this.minAlpha = minAlpha;
         this.layer1Size = layer1Size;
+        this.seed = seed;
     }
 
     public Learner() {
-        this(0.025, 0.0001, 100);
+        this(0.025, 0.0001, 100, 1);
     }
 
     @Override
@@ -85,7 +87,7 @@ public class Learner implements Processor {
         double[] l1Array = syn0.get(word);
         DoubleMatrix l1 = null;
         if (l1Array == null) {
-            org.jblas.util.Random.seed((long) (word + Integer.toString(1)).hashCode()); //FIXME seed HARDCODED!
+            org.jblas.util.Random.seed((long) (word + Long.toString(seed)).hashCode());
             l1 = DoubleMatrix.rand(layer1Size).subi(0.5).divi(layer1Size);
             syn0.put(word, l1.toArray());
         } else {
@@ -124,7 +126,7 @@ public class Learner implements Processor {
         //FIXME not necessary to put back l1? for now yes
         syn0.put(word, l1.addi(neu1e).toArray());
         //logger.info(WRow.toString() + "\n" + CRow.toString());
-        if (iterations % 100000 == 0) {
+        if (iterations % 1000000 == 0) {
             logger.info(String.format("Learner-%d: at %d iterations, alpha %.5f",
                     id, iterations, alpha));
         }
@@ -146,7 +148,7 @@ public class Learner implements Processor {
     @Override
     public Processor newProcessor(Processor processor) {
         Learner p = (Learner) processor;
-        Learner l = new Learner(p.alpha, p.minAlpha, p.layer1Size);
+        Learner l = new Learner(p.alpha, p.minAlpha, p.layer1Size, p.seed);
         l.outputStream = p.outputStream;
         l.syn0 = p.syn0;
         l.syn1neg = p.syn1neg;
@@ -156,5 +158,9 @@ public class Learner implements Processor {
 
     public void setOutputStream(Stream outputStream) {
         this.outputStream = outputStream;
+    }
+
+    public void setSeed(long seed) {
+        this.seed = seed;
     }
 }

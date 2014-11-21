@@ -45,17 +45,19 @@ public class ModelEvaluator {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelEvaluator.class);
     private HashMap<String, MutablePair<DoubleMatrix, Long>> syn0norm;
+    private int columns;
 
     public void load(File path) throws IOException, ClassNotFoundException {
         if ((new File(path.getAbsolutePath() + File.separator + "index2word")).exists()) {
             loadBatch(path);
-            return;
+        } else {
+            FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "syn0norm");
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            syn0norm = (HashMap<String, MutablePair<DoubleMatrix, Long>>) ois.readObject();
+            ois.close();
+            fis.close();
         }
-        FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "syn0norm");
-        ObjectInputStream ois = new ObjectInputStream(fis);
-        syn0norm = (HashMap<String, MutablePair<DoubleMatrix, Long>>) ois.readObject();
-        ois.close();
-        fis.close();
+        this.columns = syn0norm.values().iterator().next().getLeft().length;
     }
 
     public void loadBatch(File path) throws IOException, ClassNotFoundException {
@@ -89,12 +91,12 @@ public class ModelEvaluator {
      */
     public ArrayList<ImmutablePair<String, Double>> most_similar(List<String> positives, List<String> negatives, int topn) {
 
-        HashSet<String> input_words = new HashSet<>();
+        HashSet<String> inputWords = new HashSet<>();
         for (String word: positives) {
-            input_words.add(word);
+            inputWords.add(word);
         }
         for (String word: negatives) {
-            input_words.add(word);
+            inputWords.add(word);
         }
         HashMap<String, Double> sims = similarity_vectors(positives, negatives);
         Ordering<Map.Entry<String, Double>> byValues = new Ordering<Map.Entry<String, Double>>() {
@@ -109,9 +111,9 @@ public class ModelEvaluator {
         ArrayList<ImmutablePair<String, Double>> result = new ArrayList<ImmutablePair<String, Double>>(topn);
         int i = 0;
         int count = 0;
-        while (count < topn) {
+        while ((count < topn) && (i < simsOrdered.size())) {
             String word = simsOrdered.get(i).getKey();
-            if (!input_words.contains(word)) {
+            if (!inputWords.contains(word)) {
                 result.add(new ImmutablePair<String, Double>(word, simsOrdered.get(i).getValue()));
                 count++;
             }
@@ -128,19 +130,25 @@ public class ModelEvaluator {
      */
     public HashMap<String, Double> similarity_vectors(List<String> positives, List<String> negatives) {
 
-        // FIXME get columns without errors!
-        DoubleMatrix mean_matrix = new DoubleMatrix(positives.size() + negatives.size(),
-                syn0norm.get(positives.get(0)).getLeft().rows);
+        DoubleMatrix meanMatrix = new DoubleMatrix(positives.size() + negatives.size(), this.columns);
         int i = 0;
         for (String word: positives) {
-            mean_matrix.putRow(i, syn0norm.get(word).getLeft());
-            i++;
+            if (syn0norm.containsKey(word)) {
+                meanMatrix.putRow(i, syn0norm.get(word).getLeft());
+                i++;
+            } else {
+                logger.debug("The model does not contain the positive word: " + word);
+            }
         }
         for (String word: negatives) {
-            mean_matrix.putRow(i, syn0norm.get(word).getLeft().neg());
-            i++;
+            if (syn0norm.containsKey(word)) {
+                meanMatrix.putRow(i, syn0norm.get(word).getLeft().neg());
+                i++;
+            } else {
+                logger.debug("The model does not contain the negative word: " + word);
+            }
         }
-        DoubleMatrix mean = mean_matrix.columnMeans();
+        DoubleMatrix mean = meanMatrix.columnMeans();
         if (mean.norm2() > 0) {
             mean = normalize(mean);
         }
@@ -184,7 +192,11 @@ public class ModelEvaluator {
 
         List<Map.Entry<String, MutablePair<DoubleMatrix, Long>>> vocab_ordered = Lists.newArrayList(syn0norm.entrySet());
         Collections.sort(vocab_ordered, by_values);
-        vocab_ordered = vocab_ordered.subList(0, restrict_vocab);
+        if (restrict_vocab < syn0norm.size()) {
+            vocab_ordered = vocab_ordered.subList(0, restrict_vocab);
+        } else {
+            restrict_vocab = syn0norm.size();
+        }
         //TODO optimize this creation
         HashSet<String> ok_vocab = new HashSet<String>(vocab_ordered.size());
         for (Map.Entry<String, MutablePair<DoubleMatrix, Long>> v: vocab_ordered) {

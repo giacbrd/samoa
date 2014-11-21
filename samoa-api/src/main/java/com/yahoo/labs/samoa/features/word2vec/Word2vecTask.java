@@ -24,6 +24,7 @@ import com.github.javacliparser.Configurable;
 import com.github.javacliparser.IntOption;
 import com.github.javacliparser.FileOption;
 import com.github.javacliparser.StringOption;
+import com.github.javacliparser.ClassOption;
 import com.yahoo.labs.samoa.tasks.Task;
 import com.yahoo.labs.samoa.topology.ComponentFactory;
 import com.yahoo.labs.samoa.topology.Stream;
@@ -48,14 +49,21 @@ public class Word2vecTask implements Task, Configurable {
 
     public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
             "Word2vecTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
-    public FileOption inputFileOption = new FileOption("inputFile", 'i', "File with the list of sentences," +
-            " one sentence per line, words are divided by a space", null, "txt", false);
+    public FileOption inputFileOption = new FileOption("inputFile", 'f', "File with the list of sentences," +
+            " one sentence per line, words are divided by a space.", null, "txt", false);
     public IntOption precomputedSentences = new IntOption("precomputedSentences", 'p', "Number of sentences on which word" +
-            "statistics are computed before starting the training on them", 5000);
-    public IntOption wordPerSamplingUpdate = new IntOption("wordPerSamplingUpdate", 'u', "Number of indexed words" +
-            "necessary for a new update of the table for negative sampling", 1000000);
-    public IntOption minCount = new IntOption("minCount", 'c', "Ignore all words with total frequency lower than this", 5);
+            "statistics are computed before starting the training on them.", 20000);
+    public IntOption indexParallelism = new IntOption("indexParallelism", 'g', "Number of index generators on which " +
+            "words are distributed.", 1);
+    public IntOption samplerParallelism = new IntOption("samplerParallelism", 's', "Number of word samplers, each one " +
+            "contains a replica of the vocabulary, but it samples only a partition of the source; there is a sentence " +
+            "buffer for each word sampler.", 1);
+    public IntOption seedOption = new IntOption("seed", 'r', "Seed for random number generation.", 1);
     public FileOption modelOutput = new FileOption("modelOutput", 'o', "Directory where to save the model.", null, null, true);
+
+    public ClassOption indexGeneratorOption = new ClassOption("indexGenerator", 'i', "Index generator class.", IndexGenerator.class, "IndexGenerator");
+    public ClassOption wordSamplerOption = new ClassOption("wordSampler", 'w', "Word sampler class.", WordSampler.class, "WordSampler");
+
 
     private TopologyBuilder builder;
     private Topology topology;
@@ -64,15 +72,16 @@ public class Word2vecTask implements Task, Configurable {
     private IndexGenerator indexGenerator;
     private Stream toSampler2;
     private Stream toLearner;
-    private WordPairSampler wordPairSampler;
+    private WordSampler wordSampler;
     private Stream toBuffer;
     private SentenceQueue buffer;
     private Stream toSampler1;
     private Stream toDistributor;
-    private MultiDistributor sentenceRouter;
+    private WordDistributor wordsRouter;
     private Stream learnerToModel;
     private Model model;
     private Stream samplerToModel;
+    private Stream toBufferAll;
 
     @Override
     public void init() {
@@ -92,42 +101,50 @@ public class Word2vecTask implements Task, Configurable {
         toDistributor = builder.createStream(entrance);
 
         // Routing of sentences to indexer and to buffer
-        sentenceRouter = new MultiDistributor(2);
-        builder.addProcessor(sentenceRouter);
-        builder.connectInputAllStream(toDistributor, sentenceRouter);
-        toIndexer = builder.createStream(sentenceRouter);
-        toBuffer = builder.createStream(sentenceRouter);
-        sentenceRouter.setOutputStream(0, toIndexer);
-        sentenceRouter.setOutputStream(1, toBuffer);
+        wordsRouter = new WordDistributor(indexParallelism.getValue());
+        builder.addProcessor(wordsRouter);
+        builder.connectInputAllStream(toDistributor, wordsRouter);
+        toIndexer = builder.createStream(wordsRouter);
+        toBuffer = builder.createStream(wordsRouter);
+        // This is for sending to all buffers the last event, so to flush all the buffers
+        toBufferAll = builder.createStream(wordsRouter);
+        wordsRouter.setWordStream(toIndexer);
+        wordsRouter.setSentenceStream(toBuffer);
+        wordsRouter.setSentenceAllStream(toBufferAll);
 
         // Buffer sentences before sending to distribution
         buffer = new SentenceQueue(precomputedSentences.getValue());
-        builder.addProcessor(buffer);
-        builder.connectInputAllStream(toBuffer, buffer);
+        // Set the number of buffers equal to the number of word samplers
+        builder.addProcessor(buffer, samplerParallelism.getValue());
+        builder.connectInputShuffleStream(toBuffer, buffer);
+        builder.connectInputAllStream(toBufferAll, buffer);
         toSampler1 = builder.createStream(buffer);
         buffer.setOutputStream(toSampler1);
 
         // Generate vocabulary
-        indexGenerator = new IndexGenerator();
-        builder.addProcessor(indexGenerator);
-        builder.connectInputAllStream(toIndexer, indexGenerator);
+        indexGenerator = indexGeneratorOption.getValue();
+        builder.addProcessor(indexGenerator, indexParallelism.getValue());
+        // The same word is sent to the same indexer
+        builder.connectInputKeyStream(toIndexer, indexGenerator);
         toSampler2 = builder.createStream(indexGenerator);
         indexGenerator.setOutputStream(toSampler2);
 
         // Sample and distribute word pairs
-        // FIXME parameters!
-        wordPairSampler = new WordPairSampler(wordPerSamplingUpdate.getValue(), (short) minCount.getValue(),
-                0.0, 0.75, (short) 5, 10, 100000000);
-        builder.addProcessor(wordPairSampler);
-        builder.connectInputAllStream(toSampler1, wordPairSampler);
-        builder.connectInputAllStream(toSampler2, wordPairSampler);
-        toLearner = builder.createStream(wordPairSampler);
-        samplerToModel = builder.createStream(wordPairSampler);
-        wordPairSampler.setLearnerStream(toLearner);
-        wordPairSampler.setModelStream(samplerToModel);
+        wordSampler = wordSamplerOption.getValue();
+        wordSampler.setSeed(seedOption.getValue());
+        builder.addProcessor(wordSampler, samplerParallelism.getValue());
+        // Each word sampler receives from a single sentence buffer
+        builder.connectInputShuffleStream(toSampler1, wordSampler);
+        // All words samplers receive all the vocabulary
+        builder.connectInputAllStream(toSampler2, wordSampler);
+        toLearner = builder.createStream(wordSampler);
+        samplerToModel = builder.createStream(wordSampler);
+        wordSampler.setLearnerStream(toLearner);
+        wordSampler.setModelStream(samplerToModel);
 
         // Learning
-        Learner learner = new Learner(0.025, 0.0001, 200);
+        Learner learner = new Learner(0.025, 0.0001, 200, 1);
+        learner.setSeed(seedOption.getValue());
         builder.addProcessor(learner);
         builder.connectInputAllStream(toLearner, learner);
         learnerToModel = builder.createStream(learner);
