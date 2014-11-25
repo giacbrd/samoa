@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.tasks;
 
 /*
  * #%L
@@ -22,25 +22,25 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 
-import java.util.List;
-
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class WordPairEvent implements ContentEvent {
+public class OneContentEvent<T> implements ContentEvent {
 
-    private final String word;
-    private final String wordC;
-    private final List<String> wordsNeg;
     private String key;
+    private T content;
     private boolean isLastEvent;
 
-    public WordPairEvent(String word, String wordC, List<String> wordsNeg, boolean isLastEvent) {
-        this.word = word;
-        this.wordC = wordC;
-        this.wordsNeg = wordsNeg;
+    public OneContentEvent(T content, boolean isLastEvent) {
+        this.content = content;
         this.isLastEvent = isLastEvent;
     }
+    public OneContentEvent(T content, boolean isLastEvent, String key) {
+        this.content = content;
+        this.isLastEvent = isLastEvent;
+        this.key = key;
+    }
+
 
     @Override
     public String getKey() {
@@ -58,16 +58,7 @@ public class WordPairEvent implements ContentEvent {
         return isLastEvent;
     }
 
-    public String getWord() {
-        return word;
+    public T getContent() {
+        return content;
     }
-
-    public String getWordC() {
-        return wordC;
-    }
-
-    public List<String> getWordsNeg() {
-        return wordsNeg;
-    }
-
 }

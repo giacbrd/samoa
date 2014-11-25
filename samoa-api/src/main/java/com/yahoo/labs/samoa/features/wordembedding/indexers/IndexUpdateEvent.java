@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.indexers;
 
 /*
  * #%L
@@ -22,25 +22,26 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 
+import java.util.Map;
+import java.util.Set;
+
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class OneContentEvent<T> implements ContentEvent {
+public class IndexUpdateEvent<T> implements ContentEvent {
 
+    private final Map<T, Long> vocab;
+    private final Set<T> removeVocab;
+    private long wordCount;
     private String key;
-    private T content;
     private boolean isLastEvent;
 
-    public OneContentEvent(T content, boolean isLastEvent) {
-        this.content = content;
+    public IndexUpdateEvent(Map<T, Long> vocab, Set<T> removeVocab, long wordCount, boolean isLastEvent) {
+        this.vocab = vocab;
+        this.removeVocab = removeVocab;
+        this.wordCount = wordCount;
         this.isLastEvent = isLastEvent;
     }
-    public OneContentEvent(T content, boolean isLastEvent, String key) {
-        this.content = content;
-        this.isLastEvent = isLastEvent;
-        this.key = key;
-    }
-
 
     @Override
     public String getKey() {
@@ -49,7 +50,6 @@ public class OneContentEvent<T> implements ContentEvent {
 
     @Override
     public void setKey(String key) {
-
         this.key = key;
     }
 
@@ -58,7 +58,15 @@ public class OneContentEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getContent() {
-        return content;
+    public long getWordCount() {
+        return wordCount;
     }
+    public Map<T, Long> getVocab() {
+        return vocab;
+    }
+
+    public Set<T> getRemoveVocab() {
+        return removeVocab;
+    }
+
 }

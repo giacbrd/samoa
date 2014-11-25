@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.tasks;
 
 /*
  * #%L
@@ -20,10 +20,28 @@ package com.yahoo.labs.samoa.features.word2vec;
  * #L%
  */
 
-import com.yahoo.labs.samoa.features.FeatureLearner;
+import com.yahoo.labs.samoa.core.ContentEvent;
+import com.yahoo.labs.samoa.core.Processor;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.WordPairEvent;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Word2vec implements FeatureLearner{
+public class TestProcessor implements Processor {
+    @Override
+    public boolean process(ContentEvent event) {
+        WordPairEvent e = (WordPairEvent) event;
+        //System.out.println(e.getWord() + " " + e.getWordC());
+        return true;
+    }
+
+    @Override
+    public void onCreate(int id) {
+
+    }
+
+    @Override
+    public Processor newProcessor(Processor processor) {
+        return new TestProcessor();
+    }
 }

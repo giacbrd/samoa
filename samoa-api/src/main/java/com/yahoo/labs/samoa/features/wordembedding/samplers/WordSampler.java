@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.samplers;
 
 /*
  * #%L
@@ -26,6 +26,8 @@ import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.features.counter.Counter;
 import com.yahoo.labs.samoa.features.counter.StreamSummary;
+import com.yahoo.labs.samoa.features.wordembedding.tasks.OneContentEvent;
+import com.yahoo.labs.samoa.features.wordembedding.indexers.IndexUpdateEvent;
 import com.yahoo.labs.samoa.topology.Stream;
 import org.jblas.util.Random;
 import org.slf4j.Logger;
@@ -41,7 +43,7 @@ public class WordSampler implements Processor {
     private static final Logger logger = LoggerFactory.getLogger(WordSampler.class);
 
     public IntOption wordsPerUpdateOption = new IntOption("wordsPerUpdateOption", 'u', "Number of word index updates" +
-            "necessary for a new update of the table for negative sampling.", 1000000);
+            "necessary for a new update of the table for negative sampling.", 100000);
     public IntOption minCountOption = new IntOption("minCount", 'm', "Ignore all words with total frequency lower than this.", 5);
     public FloatOption subsamplThrOption = new FloatOption("subsampleThreshold", 's', "Threshold in words sub-sampling, " +
             "the t parameter in the article.", 0.0);
@@ -53,7 +55,7 @@ public class WordSampler implements Processor {
     public IntOption negativeOption = new IntOption("negative", 'n', "The number of negative samples, the k parameter " +
             "in the article.", 10);
     public IntOption capacityOption = new IntOption("capacity", 'c', "The capacity of the counter for word counts " +
-            "estimation.", 100000000);
+            "estimation.", Integer.MAX_VALUE);
 
     private Stream learnerStream;
     private Stream modelStream;

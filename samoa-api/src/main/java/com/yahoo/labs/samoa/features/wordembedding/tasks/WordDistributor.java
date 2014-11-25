@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.tasks;
 
 /*
  * #%L
@@ -58,7 +58,6 @@ public class WordDistributor implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            wordStream.put(new OneContentEvent<List<String>>(null, true));
             for (int i = 0; i < parallelism; i++) {
                 wordStream.put(new OneContentEvent<List<String>>(null, true, Integer.toString(i)));
             }
@@ -72,6 +71,7 @@ public class WordDistributor implements Processor {
         for(String word: words) {
             outWords.get(Math.abs(word.hashCode()) % parallelism).add(word);
         }
+        //FIXME is distribution to all indexers guaranteed?!
         for (int i = 0; i < outWords.size(); i++) {
             wordStream.put(new OneContentEvent<List<String>>(outWords.get(i), event.isLastEvent(), Integer.toString(i)));
         }

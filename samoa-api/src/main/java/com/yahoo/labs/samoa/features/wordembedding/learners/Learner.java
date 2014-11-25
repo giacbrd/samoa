@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 /*
  * #%L
@@ -22,6 +22,8 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.WordPairEvent;
+import com.yahoo.labs.samoa.features.wordembedding.models.ModelUpdateEvent;
 import com.yahoo.labs.samoa.topology.Stream;
 import org.jblas.DoubleMatrix;
 import org.jblas.MatrixFunctions;

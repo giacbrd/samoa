@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.samplers;
 
 /*
  * #%L
@@ -22,25 +22,23 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class IndexUpdateEvent implements ContentEvent {
+public class WordPairEvent implements ContentEvent {
 
-    private final Map<String, Long> vocab;
-    private final Set<String> removeVocab;
-    private long wordCount;
+    private final String word;
+    private final String wordC;
+    private final List<String> wordsNeg;
     private String key;
     private boolean isLastEvent;
 
-    public IndexUpdateEvent(Map<String, Long> vocab, Set<String> removeVocab, long wordCount, boolean isLastEvent) {
-        this.vocab = vocab;
-        this.removeVocab = removeVocab;
-        this.wordCount = wordCount;
+    public WordPairEvent(String word, String wordC, List<String> wordsNeg, boolean isLastEvent) {
+        this.word = word;
+        this.wordC = wordC;
+        this.wordsNeg = wordsNeg;
         this.isLastEvent = isLastEvent;
     }
 
@@ -60,15 +58,16 @@ public class IndexUpdateEvent implements ContentEvent {
         return isLastEvent;
     }
 
-    public long getWordCount() {
-        return wordCount;
-    }
-    public Map<String, Long> getVocab() {
-        return vocab;
+    public String getWord() {
+        return word;
     }
 
-    public Set<String> getRemoveVocab() {
-        return removeVocab;
+    public String getWordC() {
+        return wordC;
+    }
+
+    public List<String> getWordsNeg() {
+        return wordsNeg;
     }
 
 }

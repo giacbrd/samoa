@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.evaluation;
 
 /*
  * #%L
@@ -23,7 +23,6 @@ package com.yahoo.labs.samoa.features.word2vec;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.yahoo.labs.samoa.features.word2vec.batch.Vocab;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -33,7 +32,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.util.*;
 
 import static org.jblas.Geometry.normalize;
@@ -60,24 +58,32 @@ public class ModelEvaluator {
         this.columns = syn0norm.values().iterator().next().getLeft().length;
     }
 
+    /**
+     * Load a model saved in the format of http://github...
+     * @param path
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
     public void loadBatch(File path) throws IOException, ClassNotFoundException {
-        FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "index2word");
-        ObjectInputStream ois = new ObjectInputStream(fis);
-        ArrayList<String> index2word = (ArrayList<String>) ois.readObject();
-        ois.close();
-        fis.close();
-        fis = new FileInputStream(path.getAbsolutePath() + File.separator + "vocab");
-        ois = new ObjectInputStream(fis);
-        HashMap<String, Vocab> vocab = (HashMap<String, Vocab>) ois.readObject();
-        ois.close();
-        fis.close();
-        DoubleMatrix syn0normM = new DoubleMatrix();
-        syn0normM.load(path.getAbsolutePath() + File.separator + "syn0norm");
-        syn0norm = new HashMap<>(index2word.size());
-        for (int i = 0; i < index2word.size(); i++) {
-            String word = index2word.get(i);
-            syn0norm.put(word, new MutablePair<>(syn0normM.getRow(i).transpose(), (long) vocab.get(word).count));
-        }
+        //FIXME
+        throw new UnsupportedOperationException("This feature is temporarily disabled.");
+//        FileInputStream fis = new FileInputStream(path.getAbsolutePath() + File.separator + "index2word");
+//        ObjectInputStream ois = new ObjectInputStream(fis);
+//        ArrayList<String> index2word = (ArrayList<String>) ois.readObject();
+//        ois.close();
+//        fis.close();
+//        fis = new FileInputStream(path.getAbsolutePath() + File.separator + "vocab");
+//        ois = new ObjectInputStream(fis);
+//        HashMap<String, Vocab> vocab = (HashMap<String, Vocab>) ois.readObject();
+//        ois.close();
+//        fis.close();
+//        DoubleMatrix syn0normM = new DoubleMatrix();
+//        syn0normM.load(path.getAbsolutePath() + File.separator + "syn0norm");
+//        syn0norm = new HashMap<>(index2word.size());
+//        for (int i = 0; i < index2word.size(); i++) {
+//            String word = index2word.get(i);
+//            syn0norm.put(word, new MutablePair<>(syn0normM.getRow(i).transpose(), (long) vocab.get(word).count));
+//        }
 
     }
 

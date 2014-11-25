@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec.batch;
+package com.yahoo.labs.samoa.features.wordembedding;
 
 /*
  * #%L
@@ -20,28 +20,10 @@ package com.yahoo.labs.samoa.features.word2vec.batch;
  * #L%
  */
 
-import java.io.Serializable;
+import com.yahoo.labs.samoa.features.FeatureLearner;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Vocab implements Serializable, Comparable {
-    public int count;
-    public int index;
-    public double sampleProb = 1.0;
-
-    public Vocab(int count) {
-        this.count = count;
-    }
-
-    /**
-     * Order by word count, top words are the most frequent.
-     * @param o
-     * @return
-     */
-    @Override
-    public int compareTo(Object o) {
-        Vocab other = (Vocab) o;
-        return Integer.compare(other.count, this.count);
-    }
+public class Word2vec implements FeatureLearner{
 }

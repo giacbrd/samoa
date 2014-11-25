@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.word2vec;
+package com.yahoo.labs.samoa.features.wordembedding.tasks;
 
 /*
  * #%L
@@ -25,6 +25,11 @@ import com.github.javacliparser.IntOption;
 import com.github.javacliparser.FileOption;
 import com.github.javacliparser.StringOption;
 import com.github.javacliparser.ClassOption;
+import com.yahoo.labs.samoa.features.wordembedding.indexers.CacheIndexer;
+import com.yahoo.labs.samoa.features.wordembedding.indexers.IndexGenerator;
+import com.yahoo.labs.samoa.features.wordembedding.learners.Learner;
+import com.yahoo.labs.samoa.features.wordembedding.models.Model;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.WordSampler;
 import com.yahoo.labs.samoa.tasks.Task;
 import com.yahoo.labs.samoa.topology.ComponentFactory;
 import com.yahoo.labs.samoa.topology.Stream;
@@ -61,7 +66,7 @@ public class Word2vecTask implements Task, Configurable {
     public IntOption seedOption = new IntOption("seed", 'r', "Seed for random number generation.", 1);
     public FileOption modelOutput = new FileOption("modelOutput", 'o', "Directory where to save the model.", null, null, true);
 
-    public ClassOption indexGeneratorOption = new ClassOption("indexGenerator", 'i', "Index generator class.", IndexGenerator.class, "IndexGenerator");
+    public ClassOption indexGeneratorOption = new ClassOption("indexGenerator", 'i', "Index generator class.", CacheIndexer.class, "CacheIndexer");
     public ClassOption wordSamplerOption = new ClassOption("wordSampler", 'w', "Word sampler class.", WordSampler.class, "WordSampler");
 
 
@@ -122,7 +127,8 @@ public class Word2vecTask implements Task, Configurable {
         buffer.setOutputStream(toSampler1);
 
         // Generate vocabulary
-        indexGenerator = indexGeneratorOption.getValue();
+        CacheIndexer<String> indexer = indexGeneratorOption.getValue();
+        indexGenerator = new IndexGenerator(indexer);
         builder.addProcessor(indexGenerator, indexParallelism.getValue());
         // The same word is sent to the same indexer
         builder.connectInputKeyStream(toIndexer, indexGenerator);
