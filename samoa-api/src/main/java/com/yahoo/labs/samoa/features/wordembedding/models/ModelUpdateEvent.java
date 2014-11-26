@@ -26,14 +26,14 @@ import org.jblas.DoubleMatrix;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class ModelUpdateEvent implements ContentEvent {
+public class ModelUpdateEvent<T> implements ContentEvent {
 
     private String key;
-    private String word;
+    private T word;
     private DoubleMatrix row;
     private boolean isLastEvent;
 
-    public ModelUpdateEvent(String word, DoubleMatrix row, boolean isLastEvent) {
+    public ModelUpdateEvent(T word, DoubleMatrix row, boolean isLastEvent) {
         this.word = word;
         this.row = row;
         this.isLastEvent = isLastEvent;
@@ -50,7 +50,7 @@ public class ModelUpdateEvent implements ContentEvent {
         this.key = key;
     }
 
-    public String getWord() {
+    public T getWord() {
         return word;
     }
 

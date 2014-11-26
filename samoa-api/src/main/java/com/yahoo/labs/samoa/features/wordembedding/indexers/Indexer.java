@@ -41,7 +41,7 @@ public interface Indexer<T> extends Configurable {
     /**
      * Add items to the index and return their counts.
      * The returned items are a subset of the input data,
-     * they are filtered according to some Indexer rule (e.g., infrequent items)
+     * they are filtered according to some Indexer rule (e.g., no items less frequent than...)
      * @param data A list of items to index/count
      * @return The new, total counts of a subset of the added items, and the sum of the count increments.
      */

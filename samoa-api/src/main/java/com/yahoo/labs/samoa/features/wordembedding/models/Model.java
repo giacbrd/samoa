@@ -38,12 +38,12 @@ import static org.jblas.Geometry.normalize;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Model implements Processor {
+public class Model<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(Model.class);
     private Stream outputStream;
     private int id;
-    private HashMap<String, MutablePair<DoubleMatrix, Long>> syn0norm;
+    private HashMap<T, MutablePair<DoubleMatrix, Long>> syn0norm;
     private File outPath;
 
     public Model() {
@@ -85,7 +85,7 @@ public class Model implements Processor {
         }
         if (event instanceof ModelUpdateEvent) {
             ModelUpdateEvent newRow = (ModelUpdateEvent) event;
-            String word = newRow.getWord();
+            T word = (T) newRow.getWord();
             MutablePair<DoubleMatrix, Long> wordInfo = syn0norm.get(word);
             if (wordInfo == null) {
                 wordInfo = new MutablePair<DoubleMatrix, Long>(normalize(newRow.getRow()), (long) 0);
@@ -95,7 +95,7 @@ public class Model implements Processor {
             }
         } else if (event instanceof OneContentEvent) {
             OneContentEvent sentence = (OneContentEvent) event;
-            for (String word: (List<String>) sentence.getContent()) {
+            for (T word: (List<T>) sentence.getContent()) {
                 MutablePair<DoubleMatrix, Long> wordInfo = syn0norm.get(word);
                 if (wordInfo == null) {
                     wordInfo = new MutablePair<DoubleMatrix, Long>(null, (long) 1);
