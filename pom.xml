@@ -121,6 +121,7 @@
         <slf4j-log4j12.version>1.7.2</slf4j-log4j12.version>
         <slf4j-simple.version>1.7.5</slf4j-simple.version>
         <storm.version>0.8.2</storm.version>
+        <jblas.version>1.2.3</jblas.version>
     </properties>
 
     <dependencies>
