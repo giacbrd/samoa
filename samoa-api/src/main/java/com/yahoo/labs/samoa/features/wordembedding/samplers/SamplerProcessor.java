@@ -41,83 +41,115 @@ public abstract class SamplerProcessor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(SamplerProcessor.class);
 
-    private Sampler sampler;
-    private long totalWords;
-    private int id;
-    private boolean firstSentenceReceived;
-    private long totalSentences;
-    private Stream learnerStream;
-    private Stream modelStream;
-    private short window;
+    protected long seed = 1;
+    protected Sampler sampler;
+    protected int id;
+    protected boolean firstDataReceived;
+    protected long dataCount;
+    protected Stream learnerStream;
+    protected Stream modelStream;
+    protected short window;
+
+    public SamplerProcessor(Sampler sampler, short window) {
+        this.sampler = sampler;
+        this.window = window;
+    }
+
+    @Override
+    public void onCreate(int id) {
+        this.id = id;
+        // If the seed is not explicitly set
+        seed = id + 1;
+        this.sampler.initConfiguration();
+        this.sampler.setSeed(seed);
+    }
+
 
     @Override
     public boolean process(ContentEvent event) {
         if (event instanceof IndexUpdateEvent) {
             if (event.isLastEvent()) {
-                logger.info(this.getClass().getSimpleName()+"-{}: collected in vocabulary {} word types from a " +
-                                "corpus of {} words.", id, sampler.size(), totalWords);
+                logger.info(this.getClass().getSimpleName()+"-{}: collected in vocabulary {} item types from a " +
+                                "corpus of {} items.", id, sampler.size(), sampler.getItemCount());
                 return true;
             }
             IndexUpdateEvent update = (IndexUpdateEvent) event;
-            totalWords += update.getWordCount();
+            sampler.setItemCount(sampler.getItemCount() + update.getItemCount());
             // Update local vocabulary
-            Map<T, Long> vocabUpdate = update.getVocab();
+            Map<T, Long> vocabUpdate = update.getItemVocab();
             for(Map.Entry<T, Long> v: vocabUpdate.entrySet()) {
                 sampler.put(v.getKey(), v.getValue());
             }
-            Set<T> removeUpdate = update.getRemoveVocab();
+            Set<T> removeUpdate = update.getRemovedItems();
             for(T word: removeUpdate) {
                 sampler.remove(word);
             }
-            // Update the noise distribution of negative sampling
-//            if (wordUpdates % wordsPerUpdate == 0 && !(vocabUpdate.isEmpty() && removeUpdate.isEmpty()) && firstSentenceReceived) {
-//                updateNegativeSampling();
-//            }
-            // When this type of events start to arrive, the vocabulary is already well filled
+        // When this type of events start to arrive, the vocabulary is already well filled
         } else if (event instanceof OneContentEvent) {
             if (event.isLastEvent()) {
-                logger.info(this.getClass().getSimpleName()+"-{}: collected {} word types from a corpus of {} words " +
-                                "and {} sentences", id, sampler.size(), totalWords, totalSentences);
+                logger.info(this.getClass().getSimpleName()+"-{}: collected {} item types from a corpus of {} items " +
+                                "and {} data samples", id, sampler.size(), sampler.getItemCount(), dataCount);
                 learnerStream.put(new SGNSItemEvent(null, null, null, true));
                 return true;
             }
-            if (!firstSentenceReceived) {
-                firstSentenceReceived = true;
-                logger.info(this.getClass().getSimpleName()+"-{}: starting sampling sentences, the vocabulary " +
-                                "contains {} words and {} word types", id, totalWords, sampler.size());
-//                if (totalWords > 0) {
-//                    updateNegativeSampling();
-//                }
+            if (!firstDataReceived) {
+                firstDataReceived = true;
+                logger.info(this.getClass().getSimpleName()+"-{}: starting sampling data, the vocabulary " +
+                                "contains {} items and {} item types", id, sampler.getItemCount(), sampler.size());
+                if (sampler.getItemCount() > 0) {
+                    sampler.update();
+                }
             }
-            totalSentences++;
+            dataCount++;
             OneContentEvent content = (OneContentEvent) event;
-            List<T> contentSentence = (List<T>) content.getContent();
-            List<T> sentence = sampler.undersample(contentSentence);
-            // Iterate through sentence words. For each word in context (wordC) predict a word which is in the range of |window - reduced_window|
-            for (int pos = 0; pos < sentence.size(); pos++) {
-                T wordC = sentence.get(pos);
-                // Generate a random window for each word
+            List<T> contentData = (List<T>) content.getContent();
+            List<T> data = sampler.undersample(contentData);
+            modelStream.put(new OneContentEvent<List<T>>(data, false));
+            // Iterate through data items. For each item in context (contextItem) predict an item which is in the
+            // range of |window - reduced_window|
+            for (int pos = 0; pos < data.size(); pos++) {
+                T contextItem = data.get(pos);
+                // Generate a random window for each item
                 int reduced_window = Random.nextInt(window); // `b` in the original word2vec code
-                // now go over all words from the (reduced) window, predicting each one in turn
+                // now go over all items from the (reduced) window, predicting each one in turn
                 int start = Math.max(0, pos - window + reduced_window);
                 int end = pos + window + 1 - reduced_window;
-                List<T> sentence2 = sentence.subList(start, end > sentence.size() ? sentence.size() : end);
-                // Fixed a context word, iterate through words which have it in their context
+                List<T> sentence2 = data.subList(start, end > data.size() ? data.size() : end);
+                // Fixed a context item, iterate through items which have it in their context
                 for (int pos2 = 0; pos2 < sentence2.size(); pos2++) {
-                    T word = sentence2.get(pos2);
-                    // don't train on OOV words and on the `word` itself
-                    if (word != null && pos != pos2 + start) {
-                        generateTraining(word, wordC);
+                    T item = sentence2.get(pos2);
+                    // don't train on OOV items and on the `item` itself
+                    if (item != null && pos != pos2 + start) {
+                        generateTraining(item, contextItem);
                     }
                 }
             }
         }
-        if (totalSentences % 1000 == 0 && totalSentences > 0) {
-            logger.info(this.getClass().getSimpleName()+"-{}: after {} sentences, the vocabulary contains {} words " +
-                            "and {} word types", id, totalSentences, totalWords, sampler.size());
+        if (dataCount % 1000 == 0 && dataCount > 0) {
+            logger.info(this.getClass().getSimpleName()+"-{}: after {} data samples, the vocabulary contains {} items " +
+                            "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size());
         }
         return true;
     }
 
-    protected abstract void generateTraining(T word, T wordC);
+    public void setSeed(long seed) {
+        this.seed = seed;
+        this.sampler.setSeed(seed);
+    }
+
+    public void setLearnerStream(Stream learnerStream) {
+        this.learnerStream = learnerStream;
+    }
+
+    public void setModelStream(Stream modelStream) {
+        this.modelStream = modelStream;
+    }
+
+    /**
+     * Generate the message for the distributed learner processors
+     * @param item
+     * @param contextItem
+     */
+    protected abstract void generateTraining(T item, T contextItem);
+
 }

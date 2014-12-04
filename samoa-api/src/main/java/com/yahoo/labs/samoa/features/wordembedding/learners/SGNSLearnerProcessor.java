@@ -39,14 +39,13 @@ public class SGNSLearnerProcessor<T> implements Processor {
     private static final Logger logger = LoggerFactory.getLogger(SGNSLearnerProcessor.class);
 
     private final SGNSLearner learner;
-    private long seed;
+    private long seed = 1;
     private Stream outputStream;
     private int id;
     private long iterations;
 
-    public SGNSLearnerProcessor(Learner learner, long seed) {
+    public SGNSLearnerProcessor(Learner learner) {
         this.learner = (SGNSLearner) learner;
-        this.seed = seed;
     }
 
     @Override
@@ -78,7 +77,8 @@ public class SGNSLearnerProcessor<T> implements Processor {
     @Override
     public Processor newProcessor(Processor processor) {
         SGNSLearnerProcessor p = (SGNSLearnerProcessor) processor;
-        SGNSLearnerProcessor l = new SGNSLearnerProcessor(p.learner.copy(), seed);
+        SGNSLearnerProcessor l = new SGNSLearnerProcessor(p.learner.copy());
+        l.setSeed(p.seed);
         l.outputStream = p.outputStream;
         l.iterations = p.iterations;
         return l;
@@ -90,5 +90,6 @@ public class SGNSLearnerProcessor<T> implements Processor {
 
     public void setSeed(long seed) {
         this.seed = seed;
+        this.learner.setSeed(seed);
     }
 }

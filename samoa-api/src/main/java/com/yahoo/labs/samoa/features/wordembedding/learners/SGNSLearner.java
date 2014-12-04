@@ -39,11 +39,10 @@ public class SGNSLearner<T> implements Learner<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(SGNSLearner.class);
 
-    // FIXME substitute double[] with DoubleMatrix, BE AWARE OF THE BUG
-    private HashMap<T, double[]> syn0;
+    private Map<T, DoubleMatrix> syn0;
     private int layerSize = 200;
     private long seed = 1;
-    private HashMap<T, double[]> syn1neg;
+    private Map<T, DoubleMatrix> syn1neg;
     private double alpha = 0.025;
     private double minAlpha = 0.0001;
 
@@ -52,7 +51,7 @@ public class SGNSLearner<T> implements Learner<T> {
     public FloatOption alphaOption = new FloatOption("alpha", 'a', "The initial learning rate value.", alpha);
     public FloatOption minAlphaOption = new FloatOption("minAlpha", 'm', "The minimal learning rate value.", minAlpha);
 
-    public SGNSLearner(int layerSize, double alpha, double minAlpha, long seed) {
+    public SGNSLearner(int layerSize, double alpha, double minAlpha) {
         init(layerSize, alpha, minAlpha, seed);
     }
 
@@ -78,8 +77,8 @@ public class SGNSLearner<T> implements Learner<T> {
         this.minAlpha = minAlpha;
         this.layerSize = layer1Size;
         this.seed = seed;
-        syn0 = new HashMap<T, double[]>(1000000);
-        syn1neg = new HashMap<T, double[]>(1000000);
+        syn0 = new HashMap<T, DoubleMatrix>(1000000);
+        syn1neg = new HashMap<T, DoubleMatrix>(1000000);
     }
 
 
@@ -100,12 +99,15 @@ public class SGNSLearner<T> implements Learner<T> {
         }
         // Partial computation of the gradient (it misses the multiplication by the input vector)
         DoubleMatrix gb = (labels.sub(fb)).muli(alpha); // vector of error gradients multiplied by the learning rate
+//        logger.info(item + " " + contextItem);
+//        logger.info(l1.toString() + "\n" + l2b.getRow(0));
+//        logger.info(alpha+ " " + gb);
         // Now update matrices X and C
         // Learn C
         if (externalRows.containsKey(contextItem)) {
             gradients.put(contextItem, l1.mul(gb.get(0)));
         } else {
-            syn1neg.put(contextItem, l2b.getRow(0).add(l1.mul(gb.get(0))).toArray());
+            syn1neg.put(contextItem, l2b.getRow(0).add(l1.mul(gb.get(0))));
         }
         ListIterator<T> negItemsIter = negItems.listIterator();
         for (int i = 1; i < l2b.rows; i++) {
@@ -113,7 +115,7 @@ public class SGNSLearner<T> implements Learner<T> {
             if (externalRows.containsKey(wordNeg)) {
                 gradients.put(wordNeg, l1.mul(gb.get(i)));
             } else {
-                syn1neg.put(wordNeg, l2b.getRow(i).add(l1.mul(gb.get(i))).toArray());
+                syn1neg.put(wordNeg, l2b.getRow(i).add(l1.mul(gb.get(i))));
             }
         }
         // Gradient error for learning W
@@ -122,8 +124,9 @@ public class SGNSLearner<T> implements Learner<T> {
             gradients.put(item, neu1e);
         } else {
             //FIXME is it necessary to put back l1? for now yes
-            syn0.put(item, l1.addi(neu1e).toArray());
+            syn0.put(item, l1.addi(neu1e));
         }
+        //logger.info(syn0.get(item) + "\n" + syn1neg.get(contextItem));
         return gradients;
     }
 
@@ -131,7 +134,7 @@ public class SGNSLearner<T> implements Learner<T> {
         if (externalRows.containsKey(contextItem)) {
             return externalRows.get(contextItem);
         } else {
-            return getContextRow(contextItem);
+            return getContextRowRef(contextItem);
         }
     }
 
@@ -139,35 +142,27 @@ public class SGNSLearner<T> implements Learner<T> {
         if (externalRows.containsKey(item)) {
             return externalRows.get(item);
         } else {
-            return getRow(item);
+            return getRowRef(item);
         }
     }
 
-    @Override
-    public DoubleMatrix getRow(T item) {
-        double[] l1Array = syn0.get(item);
-        DoubleMatrix l1 = null;
-        if (l1Array == null) {
+    public DoubleMatrix getRowRef(T item) {
+        DoubleMatrix row = syn0.get(item);
+        if (row == null) {
             org.jblas.util.Random.seed((long) (item + Long.toString(seed)).hashCode());
-            l1 = DoubleMatrix.rand(layerSize).subi(0.5).divi(layerSize);
-            syn0.put(item, l1.toArray());
-        } else {
-            l1 = new DoubleMatrix(l1Array);
+            row = DoubleMatrix.rand(layerSize).subi(0.5).divi(layerSize);
+            syn0.put(item, row);
         }
-        return l1;
+        return row;
     }
 
-    @Override
-    public DoubleMatrix getContextRow(T item) {
-        double[] CRowArray = syn1neg.get(item);
-        DoubleMatrix CRow = null;
-        if (CRowArray == null) {
-            CRow = DoubleMatrix.zeros(layerSize);
-            syn1neg.put(item, CRow.toArray());
-        } else {
-            CRow = new DoubleMatrix(CRowArray);
+    public DoubleMatrix getContextRowRef(T item) {
+        DoubleMatrix row = syn1neg.get(item);
+        if (row == null) {
+            row = DoubleMatrix.zeros(layerSize);
+            syn1neg.put(item, row);
         }
-        return CRow;
+        return row;
     }
 
     @Override
@@ -191,18 +186,35 @@ public class SGNSLearner<T> implements Learner<T> {
     }
 
     @Override
+    public DoubleMatrix getRow(T item) {
+        return getRowRef(item).dup();
+    }
+
+    @Override
+    public DoubleMatrix getContextRow(T item) {
+        return getContextRowRef(item).dup();
+    }
+
+    @Override
     public void setSeed(long seed) {
         this.seed = seed;
     }
 
     @Override
     public Learner copy() {
-        SGNSLearner<T> l = new SGNSLearner<T>(layerSize, alpha, minAlpha, seed);
+        SGNSLearner<T> l = new SGNSLearner<T>(layerSize, alpha, minAlpha);
         l.alphaOption = (FloatOption) alphaOption.copy();
         l.minAlphaOption = (FloatOption) minAlphaOption.copy();
         l.layerSizeOption = (IntOption) layerSizeOption.copy();
-        l.syn0 = new HashMap<>(syn0);
-        l.syn1neg = new HashMap<>(syn1neg);
+        l.seed = seed;
+        l.syn0 = new HashMap<>(syn0.size());
+        for (T item: l.syn0.keySet()) {
+            l.syn0.put(item, syn0.get(item).dup());
+        }
+        l.syn1neg = new HashMap<>(syn1neg.size());
+        for (T item: l.syn0.keySet()) {
+            l.syn0.put(item, syn0.get(item).dup());
+        }
         return l;
     }
 }

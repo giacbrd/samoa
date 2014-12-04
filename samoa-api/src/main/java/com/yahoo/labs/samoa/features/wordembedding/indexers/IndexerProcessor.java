@@ -67,6 +67,7 @@ public class IndexerProcessor<T> implements Processor {
         long itemCount = update.getValue();
         Map<T, Long> removeVocab = indexer.getRemoved();
         long dataCount = indexer.dataCount();
+        //FIXME this works because data increments by 1 at each add
         if (dataCount % 1000 == 0 && dataCount > 0) {
             logger.info("IndexerProcessor-{}: after {} sentences, processed {} items and {} item types",
                     id, indexer.size(), indexer.itemCount(), dataCount);

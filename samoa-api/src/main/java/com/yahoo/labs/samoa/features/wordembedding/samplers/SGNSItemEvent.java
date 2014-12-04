@@ -42,6 +42,11 @@ public class SGNSItemEvent<T> implements ContentEvent {
         this.isLastEvent = isLastEvent;
     }
 
+    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent, String key) {
+        this(item, contextItem, negItems, isLastEvent);
+        this.key = key;
+    }
+
     @Override
     public String getKey() {
         return key;

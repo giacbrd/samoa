@@ -45,6 +45,11 @@ public interface Sampler<T> extends Configurable {
     List<T> undersample(List<T> data);
 
     /**
+     * "Manually" update internal items distribution representation, possibly asynchronously
+     */
+    void update();
+
+    /**
      * The frequency (count) of an item, used for computing sampling probabilities.
      * @param item
      * @return The item's frequency, 0 if the item does not exist
@@ -69,4 +74,12 @@ public interface Sampler<T> extends Configurable {
     void setSeed(long seed);
 
     Sampler<T> copy();
+
+    /**
+     * Set the true sum of item frequencies, so that the sampler can have the exact value and not an approximate one
+     * @param itemCount
+     */
+    void setItemCount(long itemCount);
+
+    long getItemCount();
 }

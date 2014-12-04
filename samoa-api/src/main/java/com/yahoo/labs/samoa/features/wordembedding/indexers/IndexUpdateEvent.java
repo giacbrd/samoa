@@ -30,16 +30,16 @@ import java.util.Set;
  */
 public class IndexUpdateEvent<T> implements ContentEvent {
 
-    private final Map<T, Long> vocab;
-    private final Set<T> removeVocab;
-    private long wordCount;
+    private final Map<T, Long> itemVocab;
+    private final Set<T> removedItems;
+    private long itemCount;
     private String key;
     private boolean isLastEvent;
 
-    public IndexUpdateEvent(Map<T, Long> vocab, Set<T> removeVocab, long wordCount, boolean isLastEvent) {
-        this.vocab = vocab;
-        this.removeVocab = removeVocab;
-        this.wordCount = wordCount;
+    public IndexUpdateEvent(Map<T, Long> itemVocab, Set<T> removedItems, long itemCount, boolean isLastEvent) {
+        this.itemVocab = itemVocab;
+        this.removedItems = removedItems;
+        this.itemCount = itemCount;
         this.isLastEvent = isLastEvent;
     }
 
@@ -58,15 +58,15 @@ public class IndexUpdateEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public long getWordCount() {
-        return wordCount;
+    public long getItemCount() {
+        return itemCount;
     }
-    public Map<T, Long> getVocab() {
-        return vocab;
+    public Map<T, Long> getItemVocab() {
+        return itemVocab;
     }
 
-    public Set<T> getRemoveVocab() {
-        return removeVocab;
+    public Set<T> getRemovedItems() {
+        return removedItems;
     }
 
 }

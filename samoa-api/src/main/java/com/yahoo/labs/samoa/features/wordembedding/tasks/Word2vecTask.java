@@ -32,6 +32,7 @@ import com.yahoo.labs.samoa.features.wordembedding.learners.SGNSLearnerProcessor
 import com.yahoo.labs.samoa.features.wordembedding.learners.Learner;
 import com.yahoo.labs.samoa.features.wordembedding.learners.SGNSLearner;
 import com.yahoo.labs.samoa.features.wordembedding.models.Model;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.NegativeSampler;
 import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSSamplerProcessor;
 import com.yahoo.labs.samoa.tasks.Task;
 import com.yahoo.labs.samoa.topology.ComponentFactory;
@@ -63,16 +64,19 @@ public class Word2vecTask implements Task, Configurable {
             "statistics are computed before starting the training on them.", 20000);
     public IntOption indexParallelism = new IntOption("indexParallelism", 'g', "Number of index generators on which " +
             "words are distributed.", 1);
-    public IntOption samplerParallelism = new IntOption("samplerParallelism", 's', "Number of word samplers, each one " +
+    public IntOption samplerParallelism = new IntOption("samplerParallelism", 'z', "Number of word samplers, each one " +
             "contains a replica of the vocabulary, but it samples only a partition of the source; there is a sentence " +
             "buffer for each word sampler.", 1);
     public IntOption seedOption = new IntOption("seed", 'r', "Seed for random number generation.", 1);
-    public FileOption modelOutput = new FileOption("modelOutput", 'o', "Directory where to save the model.", null, null, true);
+    public FileOption modelOutput = new FileOption("modelOutput", 'o', "Directory where to save the model.",
+            null, null, true);
+    public IntOption windowOption = new IntOption("window", 'w', "The size of the window context for each word " +
+            "occurrence.", 5);
 
     public ClassOption indexerOption = new ClassOption("indexer", 'i', "Index generator class.",
             CacheIndexer.class, "CacheIndexer");
-    public ClassOption itemSamplerOption = new ClassOption("SGNSSamplerProcessor", 'w', "Word sampler class.", SGNSSamplerProcessor.class,
-            "SGNSSamplerProcessor");
+    public ClassOption itemSamplerOption = new ClassOption("sampler", 's', "Items sampler class.", NegativeSampler.class,
+            "NegativeSampler");
     public ClassOption learnerOption = new ClassOption("learner", 'l', "Learner class.", SGNSLearner.class,
             "SGNSLearner");
 
@@ -84,7 +88,7 @@ public class Word2vecTask implements Task, Configurable {
     private IndexerProcessor indexerProcessor;
     private Stream toSampler2;
     private Stream toLearner;
-    private SGNSSamplerProcessor SGNSSamplerProcessor;
+    private SGNSSamplerProcessor samplerProcessor;
     private Stream toBuffer;
     private DataQueue buffer;
     private Stream toSampler1;
@@ -143,20 +147,21 @@ public class Word2vecTask implements Task, Configurable {
         indexerProcessor.setOutputStream(toSampler2);
 
         // Sample and distribute word pairs
-        SGNSSamplerProcessor = itemSamplerOption.getValue();
-        SGNSSamplerProcessor.setSeed(seedOption.getValue());
-        builder.addProcessor(SGNSSamplerProcessor, samplerParallelism.getValue());
+        samplerProcessor = new SGNSSamplerProcessor((NegativeSampler) itemSamplerOption.getValue(),
+                (short) windowOption.getValue(), 1);
+        samplerProcessor.setSeed(seedOption.getValue());
+        builder.addProcessor(samplerProcessor, samplerParallelism.getValue());
         // Each word sampler receives from a single sentence buffer
-        builder.connectInputShuffleStream(toSampler1, SGNSSamplerProcessor);
+        builder.connectInputShuffleStream(toSampler1, samplerProcessor);
         // All words samplers receive all the vocabulary
-        builder.connectInputAllStream(toSampler2, SGNSSamplerProcessor);
-        toLearner = builder.createStream(SGNSSamplerProcessor);
-        samplerToModel = builder.createStream(SGNSSamplerProcessor);
-        SGNSSamplerProcessor.setLearnerStream(toLearner);
-        SGNSSamplerProcessor.setModelStream(samplerToModel);
+        builder.connectInputAllStream(toSampler2, samplerProcessor);
+        toLearner = builder.createStream(samplerProcessor);
+        samplerToModel = builder.createStream(samplerProcessor);
+        samplerProcessor.setLearnerStream(toLearner);
+        samplerProcessor.setModelStream(samplerToModel);
 
         // Learning
-        SGNSLearnerProcessor learner = new SGNSLearnerProcessor((Learner) learnerOption.getValue(), seedOption.getValue());
+        SGNSLearnerProcessor learner = new SGNSLearnerProcessor((Learner) learnerOption.getValue());
         learner.setSeed(seedOption.getValue());
         builder.addProcessor(learner);
         builder.connectInputAllStream(toLearner, learner);

@@ -69,7 +69,7 @@ public class DataDistributor<T> implements Processor {
         for(T item: items) {
             outItems.get(Math.abs(item.hashCode()) % parallelism).add(item);
         }
-        //FIXME is distribution to all indexers guaranteed?!
+        //FIXME is distribution to all indexers guaranteed?! NO
         for (int i = 0; i < outItems.size(); i++) {
             if (!outItems.get(i).isEmpty()) {
                 itemStream.put(new OneContentEvent<List<T>>(outItems.get(i), false, Integer.toString(i)));
