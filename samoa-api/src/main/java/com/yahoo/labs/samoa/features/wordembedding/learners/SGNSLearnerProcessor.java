@@ -48,18 +48,24 @@ public class SGNSLearnerProcessor<T> implements Processor {
             this.externalData = externalData;
             this.totalData = totalData;
         }
+        LocalData<T> copy() {
+            LocalData<T> l = new LocalData<T>(contextItem, negItems, externalData, totalData);
+            l.dataCount = dataCount;
+            return l;
+        }
     }
 
     private static final Logger logger = LoggerFactory.getLogger(SGNSLearnerProcessor.class);
 
     private final SGNSLearner learner;
+    private boolean lasteEventReceived = false;
     private long seed = 1;
     private Stream synchroStream;
     private Stream modelStream;
     private int id;
     private long iterations;
     //FIXME substitute with guava cache
-    private Map<T, LocalData<T>> tempData = new HashMap();
+    private Map<T, LocalData<T>> tempData = new HashMap<T, LocalData<T>>();
 
     public SGNSLearnerProcessor(Learner learner) {
         this.learner = (SGNSLearner) learner;
@@ -75,8 +81,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            logger.info(String.format("Learner-%d: finished after %d iterations", id, iterations));
-            modelStream.put(new ModelUpdateEvent(null, null, true));
+            lasteEventReceived = true;
             return true;
         }
         if (event instanceof SGNSItemEvent) {
@@ -84,7 +89,6 @@ public class SGNSLearnerProcessor<T> implements Processor {
             T item = (T) itemPair.getItem();
             T contextItem = (T) itemPair.getContextItem();
             List<T> negItems = itemPair.getNegItems();
-            // Save an empty map with data to request to other learners, and the expected number of data to receive
             LocalData<T> localData = new LocalData<T>(
                     contextItem, negItems, new HashMap<T, DoubleMatrix>(negItems.size() + 1), negItems.size() + 1);
             if (learner.contains(contextItem)) {
@@ -124,6 +128,10 @@ public class SGNSLearnerProcessor<T> implements Processor {
             RowUpdate update = (RowUpdate) event;
             learner.updateContextRow(update.getItem(), update.getGradient());
         }
+        if (lasteEventReceived && tempData.isEmpty()) {
+            logger.info(String.format("SGNSLearnerProcessor-%d: finished after %d iterations", id, iterations));
+            modelStream.put(new ModelUpdateEvent(null, null, true));
+        }
         return true;
     }
 
@@ -134,7 +142,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
         DoubleMatrix outRow = learner.getRow(item);
         iterations++;
         if (iterations % 1000000 == 0) {
-            logger.info(String.format("Learner-%d: at %d iterations", id, iterations));
+            logger.info(String.format("SGNSLearnerProcessor-%d: at %d iterations", id, iterations));
         }
         if (!learner.contains(contextItem)) {
             synchroStream.put(new RowUpdate(contextItem, gradientUpdates.get(contextItem)));
@@ -175,7 +183,11 @@ public class SGNSLearnerProcessor<T> implements Processor {
         l.modelStream = p.modelStream;
         l.synchroStream = p.synchroStream;
         l.iterations = p.iterations;
-        l.tempData = new HashMap(p.tempData);
+        l.lasteEventReceived = p.lasteEventReceived;
+        l.tempData = new HashMap<T, LocalData<T>>();
+        for (Object item: p.tempData.keySet()) {
+            l.tempData.put(item, ((LocalData<T>) p.tempData.get(item)).copy());
+        }
         return l;
     }
 
