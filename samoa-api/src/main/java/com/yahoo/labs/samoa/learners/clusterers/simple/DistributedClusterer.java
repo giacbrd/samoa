@@ -79,7 +79,7 @@ public final class DistributedClusterer implements Learner, Configurable {
 //        distributorP = new ClusteringDistributorProcessor();
 //        this.builder.addProcessor(distributorP, parallelism);
 //        distributorToLocalStream = this.builder.createStream(distributorP);
-//        distributorP.setModelStream(distributorToLocalStream);
+//        distributorP.setOutputStream(distributorToLocalStream);
 //        distributorToGlobalStream = this.builder.createStream(distributorP);
 
         // Local Clustering

@@ -50,6 +50,9 @@ public class SGNSLearnerProcessor<T> implements Processor {
         }
         LocalData<T> copy() {
             LocalData<T> l = new LocalData<T>(contextItem, negItems, externalData, totalData);
+            for (T item: externalData.keySet()) {
+                l.externalData.put(item, externalData.get(item).dup());
+            }
             l.dataCount = dataCount;
             return l;
         }
@@ -83,8 +86,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
         if (event.isLastEvent()) {
             lasteEventReceived = true;
             return true;
-        }
-        if (event instanceof SGNSItemEvent) {
+        } else if (event instanceof SGNSItemEvent) {
             SGNSItemEvent itemPair = (SGNSItemEvent) event;
             T item = (T) itemPair.getItem();
             T contextItem = (T) itemPair.getContextItem();
@@ -104,8 +106,10 @@ public class SGNSLearnerProcessor<T> implements Processor {
                 }
             }
             if (localData.dataCount >= localData.totalData) {
+                //logger.info(id+" learn "+item+" "+localData.dataCount+" "+localData.totalData);
                 learn(item, localData);
             } else {
+                //logger.info(id+" put "+item);
                 tempData.put(item, localData);
             }
         } else if (event instanceof RowRequest) {
@@ -118,6 +122,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
             T sourceItem = (T) response.getSourceItem();
             T item = (T) response.getResponseItem();
             DoubleMatrix row = response.getResponseRow();
+            //logger.info(id+" get "+item+" "+tempData.get(sourceItem));
             LocalData<T> localData = tempData.get(sourceItem);
             localData.externalData.put(item, row);
             localData.dataCount++;
