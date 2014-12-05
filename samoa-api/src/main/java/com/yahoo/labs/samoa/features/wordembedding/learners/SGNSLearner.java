@@ -196,6 +196,21 @@ public class SGNSLearner<T> implements Learner<T> {
     }
 
     @Override
+    public void updateRow(T item, DoubleMatrix update) {
+        syn0.get(item).addi(update);
+    }
+
+    @Override
+    public void updateContextRow(T item, DoubleMatrix update) {
+        syn1neg.get(item).addi(update);
+    }
+
+    @Override
+    public boolean contains(T item) {
+        return syn0.containsKey(item);
+    }
+
+    @Override
     public void setSeed(long seed) {
         this.seed = seed;
     }

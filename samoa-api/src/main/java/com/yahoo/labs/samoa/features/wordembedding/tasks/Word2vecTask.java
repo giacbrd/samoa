@@ -67,6 +67,7 @@ public class Word2vecTask implements Task, Configurable {
     public IntOption samplerParallelism = new IntOption("samplerParallelism", 'z', "Number of word samplers, each one " +
             "contains a replica of the vocabulary, but it samples only a partition of the source; there is a sentence " +
             "buffer for each word sampler.", 1);
+    public IntOption learnerParallelism = new IntOption("learnerParallelism", 'x', "Number of parallel learners.", 1);
     public IntOption seedOption = new IntOption("seed", 'r', "Seed for random number generation.", 1);
     public FileOption modelOutput = new FileOption("modelOutput", 'o', "Directory where to save the model.",
             null, null, true);
@@ -98,6 +99,7 @@ public class Word2vecTask implements Task, Configurable {
     private Model model;
     private Stream samplerToModel;
     private Stream toBufferAll;
+    private Stream learnerToLearner;
 
     @Override
     public void init() {
@@ -163,10 +165,14 @@ public class Word2vecTask implements Task, Configurable {
         // Learning
         SGNSLearnerProcessor learner = new SGNSLearnerProcessor((Learner) learnerOption.getValue());
         learner.setSeed(seedOption.getValue());
-        builder.addProcessor(learner);
-        builder.connectInputAllStream(toLearner, learner);
+        builder.addProcessor(learner, learnerParallelism.getValue());
+        builder.connectInputKeyStream(toLearner, learner);
         learnerToModel = builder.createStream(learner);
-        learner.setOutputStream(learnerToModel);
+        learner.setModelStream(learnerToModel);
+        // Learning parallelism
+        learnerToLearner = builder.createStream(learner);
+        learner.setSynchroStream(learnerToLearner);
+        builder.connectInputKeyStream(learnerToLearner, learner);
 
         // Model container
         model = new Model(modelOutput.getFile());

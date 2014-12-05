@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.samplers;
+package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 /*
  * #%L
@@ -27,24 +27,17 @@ import java.util.List;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SGNSItemEvent<T> implements ContentEvent {
+public class RowRequest<T> implements ContentEvent {
 
-    private final T item;
-    private final T contextItem;
-    private final List<T> negItems;
+    private final T sourceItem;
+    private final T requestedItem;
     private String key;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent) {
-        this.item = item;
-        this.contextItem = contextItem;
-        this.negItems = negItems;
-        this.isLastEvent = isLastEvent;
-    }
-
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent, String key) {
-        this(item, contextItem, negItems, isLastEvent);
-        this.key = key;
+    public RowRequest(T sourceItem, T requestedItem) {
+        this.sourceItem = sourceItem;
+        this.requestedItem = requestedItem;
+        this.key = requestedItem.toString();
     }
 
     @Override
@@ -63,16 +56,12 @@ public class SGNSItemEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getItem() {
-        return item;
+    public T getSourceItem() {
+        return sourceItem;
     }
 
-    public T getContextItem() {
-        return contextItem;
-    }
-
-    public List<T> getNegItems() {
-        return negItems;
+    public T getRequestedItem() {
+        return requestedItem;
     }
 
 }

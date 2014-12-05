@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.samplers;
+package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 /*
  * #%L
@@ -21,30 +21,24 @@ package com.yahoo.labs.samoa.features.wordembedding.samplers;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
-
-import java.util.List;
+import org.jblas.DoubleMatrix;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SGNSItemEvent<T> implements ContentEvent {
+public class RowResponse<T> implements ContentEvent {
 
-    private final T item;
-    private final T contextItem;
-    private final List<T> negItems;
+    private final T sourceItem;
+    private final T responseItem;
+    private DoubleMatrix responseRow;
     private String key;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent) {
-        this.item = item;
-        this.contextItem = contextItem;
-        this.negItems = negItems;
-        this.isLastEvent = isLastEvent;
-    }
-
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent, String key) {
-        this(item, contextItem, negItems, isLastEvent);
-        this.key = key;
+    public RowResponse(T sourceItem, T responseItem, DoubleMatrix responseRow) {
+        this.sourceItem = sourceItem;
+        this.responseItem = responseItem;
+        this.responseRow = responseRow;
+        this.key = sourceItem.toString();
     }
 
     @Override
@@ -63,16 +57,17 @@ public class SGNSItemEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getItem() {
-        return item;
+    public T getSourceItem() {
+        return sourceItem;
     }
 
-    public T getContextItem() {
-        return contextItem;
+    public T getResponseItem() {
+        return responseItem;
     }
 
-    public List<T> getNegItems() {
-        return negItems;
+    public DoubleMatrix getResponseRow() {
+        return responseRow;
     }
+
 
 }

@@ -47,6 +47,12 @@ public interface Learner<T> extends Configurable {
 
     DoubleMatrix getContextRow(T item);
 
+    void updateRow(T item, DoubleMatrix update);
+
+    void updateContextRow(T item, DoubleMatrix update);
+
+    boolean contains (T item);
+
     void setSeed(long seed);
 
 //    /**

@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.samplers;
+package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 /*
  * #%L
@@ -21,30 +21,22 @@ package com.yahoo.labs.samoa.features.wordembedding.samplers;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
-
-import java.util.List;
+import org.jblas.DoubleMatrix;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SGNSItemEvent<T> implements ContentEvent {
+public class RowUpdate<T> implements ContentEvent {
 
     private final T item;
-    private final T contextItem;
-    private final List<T> negItems;
+    private final DoubleMatrix gradient;
     private String key;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent) {
+    public RowUpdate(T item, DoubleMatrix gradient) {
         this.item = item;
-        this.contextItem = contextItem;
-        this.negItems = negItems;
-        this.isLastEvent = isLastEvent;
-    }
-
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent, String key) {
-        this(item, contextItem, negItems, isLastEvent);
-        this.key = key;
+        this.gradient = gradient;
+        this.key = item.toString();
     }
 
     @Override
@@ -67,12 +59,8 @@ public class SGNSItemEvent<T> implements ContentEvent {
         return item;
     }
 
-    public T getContextItem() {
-        return contextItem;
-    }
-
-    public List<T> getNegItems() {
-        return negItems;
+    public DoubleMatrix getGradient() {
+        return gradient;
     }
 
 }
