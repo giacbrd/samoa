@@ -22,13 +22,11 @@ package com.yahoo.labs.samoa.topology.impl;
 
 import java.util.LinkedList;
 import java.util.List;
-
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.topology.IProcessingItem;
 import com.yahoo.labs.samoa.topology.AbstractStream;
 import com.yahoo.labs.samoa.utils.StreamDestination;
+import static com.yahoo.labs.samoa.utils.StreamDestination.getPIIndexForKey;
 
 /**
  * Stream for multithreaded engine.
@@ -86,21 +84,5 @@ public class ThreadsStream extends AbstractStream {
             }
         }
     }
-	
-	private static int getPIIndexForKey(String key, int parallelism) {
-		// If key is null, return a default index: 0
-		if (key == null) return 0;
-		
-		// HashCodeBuilder object does not have reset() method
-    	// So all objects that get appended will be included in the 
-    	// computation of the hashcode. 
-    	// To avoid initialize a HashCodeBuilder for each event,
-    	// here I use the static method with reflection on the event's key
-		int index = HashCodeBuilder.reflectionHashCode(key, true) % parallelism;
-		if (index < 0) {
-			index += parallelism;
-		}
-		return index;
-	}
 
 }
