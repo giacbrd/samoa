@@ -21,7 +21,6 @@ package com.yahoo.labs.samoa.utils;
  */
 
 import com.yahoo.labs.samoa.topology.IProcessingItem;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
  * Represents one destination for streams. It has the info of:
@@ -73,13 +72,7 @@ public class StreamDestination {
     public static int getPIIndexForKey(String key, int parallelism) {
         // If key is null, return a default index: 0
         if (key == null) return 0;
-
-        // HashCodeBuilder object does not have reset() method
-        // So all objects that get appended will be included in the
-        // computation of the hashcode.
-        // To avoid initialize a HashCodeBuilder for each event,
-        // here I use the static method with reflection on the event's key
-        int index = HashCodeBuilder.reflectionHashCode(key, true) % parallelism;
+        int index = key.hashCode() % parallelism;
         if (index < 0) {
             index += parallelism;
         }
