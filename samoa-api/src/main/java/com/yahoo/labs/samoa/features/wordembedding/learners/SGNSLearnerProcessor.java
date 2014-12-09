@@ -85,7 +85,6 @@ public class SGNSLearnerProcessor<T> implements Processor {
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
             lasteEventReceived = true;
-            return true;
         } else if (event instanceof SGNSItemEvent) {
             SGNSItemEvent itemPair = (SGNSItemEvent) event;
             T item = (T) itemPair.getItem();
@@ -93,16 +92,13 @@ public class SGNSLearnerProcessor<T> implements Processor {
             List<T> negItems = itemPair.getNegItems();
             LocalData<T> localData = new LocalData<T>(
                     contextItem, negItems, new HashMap<T, DoubleMatrix>(negItems.size() + 1), negItems.size() + 1);
+            //FIXME ugly code, but "recursion" must be put at the end because non asynchronous put() of samoa-local
             if (learner.contains(contextItem)) {
                 localData.dataCount++;
-            } else {
-                synchroStream.put(new RowRequest(item, itemPair.getContextItem()));
             }
             for (T negItem: negItems) {
                 if (learner.contains(negItem)) {
                     localData.dataCount++;
-                } else {
-                    synchroStream.put(new RowRequest(item, negItem));
                 }
             }
             if (localData.dataCount >= localData.totalData) {
@@ -111,6 +107,14 @@ public class SGNSLearnerProcessor<T> implements Processor {
             } else {
                 //logger.info(id+" put "+item);
                 tempData.put(item, localData);
+                if (!learner.contains(contextItem)) {
+                    synchroStream.put(new RowRequest(item, itemPair.getContextItem()));
+                }
+                for (T negItem: negItems) {
+                    if (!learner.contains(negItem)) {
+                        synchroStream.put(new RowRequest(item, negItem));
+                    }
+                }
             }
         } else if (event instanceof RowRequest) {
             RowRequest request = (RowRequest) event;
@@ -133,6 +137,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
             RowUpdate update = (RowUpdate) event;
             learner.updateContextRow(update.getItem(), update.getGradient());
         }
+        //FIXME this does not guarantee that all learners will write all their last learned words in the model
         if (lasteEventReceived && tempData.isEmpty()) {
             logger.info(String.format("SGNSLearnerProcessor-%d: finished after %d iterations", id, iterations));
             modelStream.put(new ModelUpdateEvent(null, null, true));

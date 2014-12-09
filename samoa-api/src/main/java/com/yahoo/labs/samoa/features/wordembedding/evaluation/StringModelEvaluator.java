@@ -39,9 +39,9 @@ import static org.jblas.Geometry.normalize;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class WordModelEvaluator {
+public class StringModelEvaluator {
 
-    private static final Logger logger = LoggerFactory.getLogger(WordModelEvaluator.class);
+    private static final Logger logger = LoggerFactory.getLogger(StringModelEvaluator.class);
     private HashMap<String, MutablePair<DoubleMatrix, Long>> syn0norm;
     private int columns;
 
@@ -281,7 +281,7 @@ public class WordModelEvaluator {
     }
 
     public static void main(String[] args) {
-        WordModelEvaluator e = new WordModelEvaluator();
+        StringModelEvaluator e = new StringModelEvaluator();
         try {
             e.load(new File(args[0]));
         } catch (IOException e1) {
