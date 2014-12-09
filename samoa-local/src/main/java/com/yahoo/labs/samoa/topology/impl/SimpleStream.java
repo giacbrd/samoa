@@ -26,14 +26,11 @@ package com.yahoo.labs.samoa.topology.impl;
 
 import java.util.LinkedList;
 import java.util.List;
-
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.topology.AbstractStream;
 import com.yahoo.labs.samoa.topology.IProcessingItem;
-import com.yahoo.labs.samoa.topology.Stream;
 import com.yahoo.labs.samoa.utils.StreamDestination;
+import static com.yahoo.labs.samoa.utils.StreamDestination.getPIIndexForKey;
 
 /**
  * 
@@ -73,10 +70,7 @@ class SimpleStream extends AbstractStream {
                 pi.processEvent(event, counter % parallelism);
                 break;
             case GROUP_BY_KEY:
-                HashCodeBuilder hb = new HashCodeBuilder();
-                hb.append(event.getKey());
-                int key = hb.build() % parallelism;
-                pi.processEvent(event, key);
+                pi.processEvent(event, getPIIndexForKey(event.getKey(), parallelism));
                 break;
             case BROADCAST:
                 for (int p = 0; p < parallelism; p++) {
