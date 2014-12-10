@@ -40,6 +40,7 @@ import java.util.Set;
 public abstract class SamplerProcessor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(SamplerProcessor.class);
+    private static final long serialVersionUID = -4732844812145527288L;
 
     protected long seed = 1;
     protected Sampler sampler;

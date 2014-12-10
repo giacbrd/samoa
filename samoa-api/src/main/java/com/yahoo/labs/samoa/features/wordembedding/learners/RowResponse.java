@@ -28,6 +28,7 @@ import org.jblas.DoubleMatrix;
  */
 public class RowResponse<T> implements ContentEvent {
 
+    private static final long serialVersionUID = -2931184484248922861L;
     private final String sourceKey;
     private final T sourceItem;
     private final T responseItem;

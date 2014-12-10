@@ -23,10 +23,12 @@ package com.yahoo.labs.samoa.features.wordembedding.learners;
 import com.github.javacliparser.Configurable;
 import org.jblas.DoubleMatrix;
 
+import java.io.Serializable;
+
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface Learner<T> extends Configurable {
+public interface Learner<T> extends Configurable, Serializable {
 
     /**
      * Initialize the configuration with the CLI options.

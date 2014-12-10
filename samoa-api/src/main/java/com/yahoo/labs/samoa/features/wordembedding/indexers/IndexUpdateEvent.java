@@ -30,6 +30,7 @@ import java.util.Set;
  */
 public class IndexUpdateEvent<T> implements ContentEvent {
 
+    private static final long serialVersionUID = 7608806911635852512L;
     private final Map<T, Long> itemVocab;
     private final Set<T> removedItems;
     private long itemCount;

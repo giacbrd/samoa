@@ -23,6 +23,7 @@ package com.yahoo.labs.samoa.features.wordembedding.tasks;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.EntranceProcessor;
 import com.yahoo.labs.samoa.core.Processor;
+import org.apache.commons.collections.ResettableIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,12 +37,14 @@ import java.util.Iterator;
 public class IteratorEntrance<T> implements EntranceProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(IteratorEntrance.class);
+    private static final long serialVersionUID = -3701928882036160733L;
+
     private int id;
-    private Iterator iterator;
+    private ResettableIterator iterator;
     private boolean isFinished = false;
     private T lastElement;
 
-    public IteratorEntrance(Iterator<T> iterator) {
+    public IteratorEntrance(ResettableIterator iterator) {
         this.iterator = iterator;
     }
 
@@ -54,6 +57,7 @@ public class IteratorEntrance<T> implements EntranceProcessor {
     public void onCreate(int id) {
         this.id = id;
         isFinished = false;
+        this.iterator.reset();
     }
 
     @Override

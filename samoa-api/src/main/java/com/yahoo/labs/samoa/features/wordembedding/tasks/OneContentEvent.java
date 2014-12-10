@@ -27,6 +27,7 @@ import com.yahoo.labs.samoa.core.ContentEvent;
  */
 public class OneContentEvent<T> implements ContentEvent {
 
+    private static final long serialVersionUID = -7858923507064830826L;
     private String key;
     private T content;
     private boolean isLastEvent;

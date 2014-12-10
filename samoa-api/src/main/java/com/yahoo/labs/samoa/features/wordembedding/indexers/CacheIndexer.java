@@ -36,11 +36,13 @@ import java.util.concurrent.TimeUnit;
 public class CacheIndexer<T> implements Indexer {
 
     private static final Logger logger = LoggerFactory.getLogger(CacheIndexer.class);
+    private static final long serialVersionUID = 6644093609991285167L;
 
     private long totalData;
     private long cacheSize = Integer.MAX_VALUE;
     private long itemExpiry = 24*60;
-    private LoadingCache<T, Long> vocab;
+    //FIXME is this transient safe?
+    transient private LoadingCache<T, Long> vocab;
     private long totalItems;
     private Map<T, Long> removeVocab;
     private short minCount = 5;

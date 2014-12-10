@@ -35,6 +35,8 @@ import java.util.List;
 public class SGNSSamplerProcessor<T> extends SamplerProcessor<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(SGNSSamplerProcessor.class);
+    private static final long serialVersionUID = -4509340061994117991L;
+
     private final int parallelism;
 
     public SGNSSamplerProcessor(Sampler sampler, short window, int parallelism) {

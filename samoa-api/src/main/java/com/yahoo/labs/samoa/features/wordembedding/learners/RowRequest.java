@@ -29,6 +29,7 @@ import java.util.List;
  */
 public class RowRequest<T> implements ContentEvent {
 
+    private static final long serialVersionUID = 4705812110929345641L;
     private final String sourceKey;
     private final T sourceItem;
     private final T requestedItem;

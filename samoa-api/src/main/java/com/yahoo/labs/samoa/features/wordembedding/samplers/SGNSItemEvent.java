@@ -29,6 +29,7 @@ import java.util.List;
  */
 public class SGNSItemEvent<T> implements ContentEvent {
 
+    private static final long serialVersionUID = 278023268642657276L;
     private final T item;
     private final T contextItem;
     private final List<T> negItems;

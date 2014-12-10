@@ -22,6 +22,7 @@ package com.yahoo.labs.samoa.features.wordembedding.indexers;
 
 import com.github.javacliparser.Configurable;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +30,7 @@ import java.util.Set;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface Indexer<T> extends Configurable {
+public interface Indexer<T> extends Configurable, Serializable {
 
     /**
      * Initialize the configuration with the CLI options.

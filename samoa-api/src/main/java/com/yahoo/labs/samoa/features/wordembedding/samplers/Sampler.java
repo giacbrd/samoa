@@ -23,12 +23,13 @@ package com.yahoo.labs.samoa.features.wordembedding.samplers;
 import com.github.javacliparser.Configurable;
 import org.jblas.DoubleMatrix;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface Sampler<T> extends Configurable {
+public interface Sampler<T> extends Configurable, Serializable {
 
     /**
      * Initialize the configuration with the CLI options.

@@ -37,13 +37,14 @@ import java.util.List;
 public class DataQueue<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(DataQueue.class);
+    private static final long serialVersionUID = 6700446592470187678L;
+
     private final int maxDataSamples;
     private int id;
     private Stream outputStream;
     /** Data bytes are computed on the string representation of items */
     private long totalBytes = 0;
     ArrayDeque<List<T>> queue;
-
 
     public DataQueue(int maxDataSamples) {
         this.maxDataSamples = Math.max(1, maxDataSamples);

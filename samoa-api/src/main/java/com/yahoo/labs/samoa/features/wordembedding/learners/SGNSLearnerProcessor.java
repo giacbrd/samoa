@@ -29,6 +29,7 @@ import org.jblas.DoubleMatrix;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.*;
 
 /**
@@ -36,7 +37,10 @@ import java.util.*;
  */
 public class SGNSLearnerProcessor<T> implements Processor {
 
-    class LocalData<T> {
+    private static final long serialVersionUID = -1333212366354785743L;
+
+    class LocalData<T> implements Serializable {
+        private static final long serialVersionUID = -5572720849350089181L;
         final T item;
         final T contextItem;
         final List<T> negItems;

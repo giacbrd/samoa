@@ -37,6 +37,7 @@ import java.util.Map;
 
 public class NegativeSampler<T> implements Sampler<T> {
 
+    private static final long serialVersionUID = 7708675565227109637L;
     private double subsamplThr = 0.0;
     private Counter<T> vocab;
     private int itemsPerUpdate = 100000;

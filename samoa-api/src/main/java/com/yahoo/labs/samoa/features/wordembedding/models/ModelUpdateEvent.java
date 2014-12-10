@@ -28,6 +28,7 @@ import org.jblas.DoubleMatrix;
  */
 public class ModelUpdateEvent<T> implements ContentEvent {
 
+    private static final long serialVersionUID = 307699218307673092L;
     private String key;
     private T word;
     private DoubleMatrix row;

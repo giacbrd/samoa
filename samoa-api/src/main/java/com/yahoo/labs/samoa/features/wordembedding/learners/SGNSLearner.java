@@ -38,6 +38,7 @@ import java.util.Map;
 public class SGNSLearner<T> implements Learner<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(SGNSLearner.class);
+    private static final long serialVersionUID = 8581722962299330045L;
 
     private Map<T, DoubleMatrix> syn0;
     private int layerSize = 200;

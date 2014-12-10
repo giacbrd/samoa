@@ -21,6 +21,8 @@ package com.yahoo.labs.samoa.features.counters;
  */
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
+
+import java.io.Serializable;
 import java.util.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,8 +37,11 @@ import java.util.List;
 
 public class StreamSummary<T> implements Counter<T> {
 
-    protected class DoublyLinkedList<T> implements Iterable<T> {
+    private static final long serialVersionUID = -6555199708124770368L;
 
+    protected class DoublyLinkedList<T> implements Iterable<T>, Serializable {
+
+        private static final long serialVersionUID = 9195354192222215347L;
         protected int size;
         protected ListNode2<T> tail;
         protected ListNode2<T> head;
@@ -132,8 +137,9 @@ public class StreamSummary<T> implements Counter<T> {
             return new DoublyLinkedListIterator(this);
         }
 
-        protected class DoublyLinkedListIterator implements Iterator<T> {
+        protected class DoublyLinkedListIterator implements Iterator<T>, Serializable {
 
+            private static final long serialVersionUID = 8467656564460711466L;
             protected DoublyLinkedList<T> list;
             protected ListNode2<T> itr;
             protected int length;
@@ -197,7 +203,8 @@ public class StreamSummary<T> implements Counter<T> {
         }
     }
 
-    protected class ListNode2<T> {
+    protected class ListNode2<T> implements Serializable {
+        private static final long serialVersionUID = 2111683420242660585L;
         protected T value;
         protected ListNode2<T> prev;
         protected ListNode2<T> next;
@@ -218,7 +225,8 @@ public class StreamSummary<T> implements Counter<T> {
         }
     }
 
-    protected class ItemCount<T>  {
+    protected class ItemCount<T> implements Serializable {
+        private static final long serialVersionUID = 4284129273367408644L;
         protected ListNode2<StreamSummary<T>.Bucket> bucketNode;
         protected T item;
         protected long count;
@@ -240,7 +248,8 @@ public class StreamSummary<T> implements Counter<T> {
         }
     }
 
-    protected class Bucket {
+    protected class Bucket implements Serializable {
+        private static final long serialVersionUID = -3280253727797783868L;
         protected DoublyLinkedList<ItemCount<T>> counterList;
         private long count;
         public Bucket(long count) {

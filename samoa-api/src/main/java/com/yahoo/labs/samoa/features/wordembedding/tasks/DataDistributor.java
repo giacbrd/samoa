@@ -38,8 +38,9 @@ import java.util.List;
 public class DataDistributor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(DataDistributor.class);
-    private int id;
+    private static final long serialVersionUID = 4821092756503632809L;
 
+    private int id;
     private Stream itemStream;
     private Stream dataStream;
     private int parallelism;

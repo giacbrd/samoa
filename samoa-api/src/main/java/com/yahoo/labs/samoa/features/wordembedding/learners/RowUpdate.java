@@ -28,6 +28,7 @@ import org.jblas.DoubleMatrix;
  */
 public class RowUpdate<T> implements ContentEvent {
 
+    private static final long serialVersionUID = -2160261482784522833L;
     private final T item;
     private final DoubleMatrix gradient;
     private String key;

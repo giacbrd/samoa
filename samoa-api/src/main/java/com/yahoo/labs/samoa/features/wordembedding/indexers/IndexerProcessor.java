@@ -36,6 +36,7 @@ import java.util.*;
 public class IndexerProcessor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(IndexerProcessor.class);
+    private static final long serialVersionUID = -7609177989430575101L;
 
     private int id;
     private Stream outputStream;

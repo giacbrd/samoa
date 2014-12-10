@@ -19,6 +19,7 @@ package com.yahoo.labs.samoa.features.counters;
  * #L%
  */
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -27,7 +28,7 @@ import java.util.Map;
  *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface Counter<T> {
+public interface Counter<T> extends Serializable {
 
     int size();
     /**

@@ -20,9 +20,14 @@ package com.yahoo.labs.samoa.features.wordembedding.tasks;
  * #L%
  */
 
+import org.apache.commons.collections.ResettableIterator;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.Reader;
+import java.io.File;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -30,14 +35,36 @@ import java.util.List;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SentenceIterator implements Iterator<List<String>> {
+public class SentenceIterator implements ResettableIterator, Serializable {
 
-    private final LineIterator iterator;
+    private static final Logger logger = LoggerFactory.getLogger(SentenceIterator.class);
+    private static final long serialVersionUID = -7994779092521326011L;
+    private final File file;
+    private final String codec;
+
+    transient private LineIterator iterator = null;
     private String separator;
 
-    public SentenceIterator(LineIterator iterator, String separator) {
-        this.iterator = iterator;
+    public SentenceIterator(File file, String separator, String codec) {
+        this.file = file;
         this.separator = separator;
+        this.codec = codec;
+        reset();
+    }
+
+    public SentenceIterator(SentenceIterator sentenceIterator) {
+        this(sentenceIterator.file, sentenceIterator.separator, sentenceIterator.codec);
+    }
+
+    public void reset() {
+        // Produce data stream from text file, each data sample (sentence) is a file line
+        try {
+            iterator = FileUtils.lineIterator(file, codec);
+        } catch (java.io.IOException e) {
+            logger.error("Error with file " + file.getPath());
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     @Override

@@ -41,6 +41,8 @@ import static org.jblas.Geometry.normalize;
 public class Model<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(Model.class);
+    private static final long serialVersionUID = -1427330729767682263L;
+
     private Stream outputStream;
     private int id;
     private HashMap<T, MutablePair<DoubleMatrix, Long>> syn0norm;

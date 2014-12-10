@@ -39,8 +39,6 @@ import com.yahoo.labs.samoa.topology.ComponentFactory;
 import com.yahoo.labs.samoa.topology.Stream;
 import com.yahoo.labs.samoa.topology.Topology;
 import com.yahoo.labs.samoa.topology.TopologyBuilder;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +53,7 @@ import java.util.Date;
 public class Word2vecTask implements Task, Configurable {
 
     private static final Logger logger = LoggerFactory.getLogger(Word2vecTask.class);
+    private static final long serialVersionUID = -8679039729207387792L;
 
     public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
             "Word2vecTask" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
@@ -104,18 +103,8 @@ public class Word2vecTask implements Task, Configurable {
     @Override
     public void init() {
 
-        // Produce data stream from text file, each data sample (sentence) is a file line
-        LineIterator iterator = null;
-        try {
-            // FIXME assumes utf8
-            iterator = FileUtils.lineIterator(inputFileOption.getFile(), "UTF-8");
-        } catch (java.io.IOException e) {
-            logger.error("Error with file " + inputFileOption.getFile().getPath());
-            e.printStackTrace();
-            System.exit(1);
-        }
-        //FIXME assumes spaces in sentence splitting
-        entrance = new IteratorEntrance(new SentenceIterator(iterator, " "));
+        //FIXME assumes spaces in sentence splitting and utf8 coding
+        entrance = new IteratorEntrance(new SentenceIterator(inputFileOption.getFile(), " ", "UTF-8"));
         builder.addEntranceProcessor(entrance);
         toDistributor = builder.createStream(entrance);
 
