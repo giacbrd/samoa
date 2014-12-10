@@ -37,21 +37,23 @@ import java.util.*;
 public class SGNSLearnerProcessor<T> implements Processor {
 
     class LocalData<T> {
+        final T item;
         final T contextItem;
         final List<T> negItems;
         final Map<T, DoubleMatrix> externalData;
         int dataCount = 0;
         final int totalData;
-        LocalData(T contextItem, List<T> negItems, Map<T, DoubleMatrix> externalData, int totalData) {
+        LocalData(T item , T contextItem, List<T> negItems, Map<T, DoubleMatrix> externalData, int totalData) {
+            this.item = item;
             this.contextItem = contextItem;
             this.negItems = negItems;
             this.externalData = externalData;
             this.totalData = totalData;
         }
         LocalData<T> copy() {
-            LocalData<T> l = new LocalData<T>(contextItem, negItems, externalData, totalData);
-            for (T item: externalData.keySet()) {
-                l.externalData.put(item, externalData.get(item).dup());
+            LocalData<T> l = new LocalData<T>(item, contextItem, negItems, externalData, totalData);
+            for (T extItem: externalData.keySet()) {
+                l.externalData.put(extItem, externalData.get(extItem).dup());
             }
             l.dataCount = dataCount;
             return l;
@@ -68,7 +70,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
     private int id;
     private long iterations;
     //FIXME substitute with guava cache
-    private Map<T, LocalData<T>> tempData = new HashMap<T, LocalData<T>>();
+    private Map<String, LocalData<T>> tempData = new HashMap<String, LocalData<T>>();
 
     public SGNSLearnerProcessor(Learner learner) {
         this.learner = (SGNSLearner) learner;
@@ -90,8 +92,9 @@ public class SGNSLearnerProcessor<T> implements Processor {
             T item = (T) itemPair.getItem();
             T contextItem = (T) itemPair.getContextItem();
             List<T> negItems = itemPair.getNegItems();
-            LocalData<T> localData = new LocalData<T>(
-                    contextItem, negItems, new HashMap<T, DoubleMatrix>(negItems.size() + 1), negItems.size() + 1);
+            LocalData<T> localData = new LocalData<T>(item, contextItem, negItems,
+                    new HashMap<T, DoubleMatrix>(negItems.size() + 1), negItems.size() + 1);
+            String localKey = uniqueKey();
             //FIXME ugly code, but "recursion" must be put at the end because non asynchronous put() of samoa-local
             if (learner.contains(contextItem)) {
                 localData.dataCount++;
@@ -102,39 +105,45 @@ public class SGNSLearnerProcessor<T> implements Processor {
                 }
             }
             if (localData.dataCount >= localData.totalData) {
-                //logger.info(id+" learn "+item+" "+localData.dataCount+" "+localData.totalData);
+                //logger.info(id+":learn1 "+item+"-"+contextItem+" "+localData.dataCount+" "+localData.totalData);
                 learn(item, localData);
+                tempData.remove(localKey);
             } else {
-                //logger.info(id+" put "+item);
-                tempData.put(item, localData);
+                //logger.info(id+":put "+item+"-"+contextItem);
+                tempData.put(localKey, localData);
                 if (!learner.contains(contextItem)) {
-                    synchroStream.put(new RowRequest(item, itemPair.getContextItem()));
+                    synchroStream.put(new RowRequest(localKey, item, itemPair.getContextItem()));
                 }
                 for (T negItem: negItems) {
                     if (!learner.contains(negItem)) {
-                        synchroStream.put(new RowRequest(item, negItem));
+                        synchroStream.put(new RowRequest(localKey, item, negItem));
                     }
                 }
             }
         } else if (event instanceof RowRequest) {
             RowRequest request = (RowRequest) event;
             T requestedItem = (T) request.getRequestedItem();
+            //logger.info(id+":request "+request.getSourceItem()+" "+requestedItem);
             synchroStream.put(new RowResponse(
-                    request.getSourceItem(), requestedItem, learner.getContextRow(requestedItem)));
+                    request.getSourceKey(), request.getSourceItem(), requestedItem, learner.getContextRow(requestedItem)));
         } else if (event instanceof RowResponse) {
             RowResponse response = (RowResponse) event;
+            String sourceKey = response.getSourceKey();
             T sourceItem = (T) response.getSourceItem();
-            T item = (T) response.getResponseItem();
+            T newItem = (T) response.getResponseItem();
             DoubleMatrix row = response.getResponseRow();
-            //logger.info(id+" get "+item+" "+tempData.get(sourceItem));
-            LocalData<T> localData = tempData.get(sourceItem);
-            localData.externalData.put(item, row);
+            //logger.info(id+":get "+sourceItem+" "+newItem+" "+tempData.containsKey(sourceKey));
+            LocalData<T> localData = tempData.get(sourceKey);
+            localData.externalData.put(newItem, row);
             localData.dataCount++;
             if (localData.dataCount >= localData.totalData) {
+                //logger.info(id+":learn2 "+newItem+"-"+localData.contextItem+" "+localData.dataCount+" "+localData.totalData);
                 learn(sourceItem, localData);
+                tempData.remove(sourceKey);
             }
         } else if (event instanceof RowUpdate) {
             RowUpdate update = (RowUpdate) event;
+            //logger.info(id+":update "+update.getItem());
             learner.updateContextRow(update.getItem(), update.getGradient());
         }
         //FIXME this does not guarantee that all learners will write all their last learned words in the model
@@ -143,6 +152,10 @@ public class SGNSLearnerProcessor<T> implements Processor {
             modelStream.put(new ModelUpdateEvent(null, null, true));
         }
         return true;
+    }
+
+    private String uniqueKey() {
+        return UUID.randomUUID().toString();
     }
 
     private void learn(T item, LocalData<T> localData) {
@@ -163,7 +176,6 @@ public class SGNSLearnerProcessor<T> implements Processor {
             }
         }
         modelStream.put(new ModelUpdateEvent(item, outRow, false));
-        tempData.remove(item);
     }
 
 //    @Override
@@ -194,9 +206,9 @@ public class SGNSLearnerProcessor<T> implements Processor {
         l.synchroStream = p.synchroStream;
         l.iterations = p.iterations;
         l.lasteEventReceived = p.lasteEventReceived;
-        l.tempData = new HashMap<T, LocalData<T>>();
-        for (Object item: p.tempData.keySet()) {
-            l.tempData.put(item, ((LocalData<T>) p.tempData.get(item)).copy());
+        l.tempData = new HashMap<String, LocalData<T>>();
+        for (Object key: p.tempData.keySet()) {
+            l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());
         }
         return l;
     }

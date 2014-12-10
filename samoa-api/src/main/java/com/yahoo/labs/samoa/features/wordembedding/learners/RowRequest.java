@@ -29,12 +29,14 @@ import java.util.List;
  */
 public class RowRequest<T> implements ContentEvent {
 
+    private final String sourceKey;
     private final T sourceItem;
     private final T requestedItem;
     private String key;
     private boolean isLastEvent = false;
 
-    public RowRequest(T sourceItem, T requestedItem) {
+    public RowRequest(String sourceKey, T sourceItem, T requestedItem) {
+        this.sourceKey = sourceKey;
         this.sourceItem = sourceItem;
         this.requestedItem = requestedItem;
         this.key = requestedItem.toString();
@@ -62,6 +64,10 @@ public class RowRequest<T> implements ContentEvent {
 
     public T getRequestedItem() {
         return requestedItem;
+    }
+
+    public String getSourceKey() {
+        return sourceKey;
     }
 
 }

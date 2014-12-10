@@ -28,13 +28,15 @@ import org.jblas.DoubleMatrix;
  */
 public class RowResponse<T> implements ContentEvent {
 
+    private final String sourceKey;
     private final T sourceItem;
     private final T responseItem;
     private DoubleMatrix responseRow;
     private String key;
     private boolean isLastEvent = false;
 
-    public RowResponse(T sourceItem, T responseItem, DoubleMatrix responseRow) {
+    public RowResponse(String sourceKey, T sourceItem, T responseItem, DoubleMatrix responseRow) {
+        this.sourceKey = sourceKey;
         this.sourceItem = sourceItem;
         this.responseItem = responseItem;
         this.responseRow = responseRow;
@@ -69,5 +71,8 @@ public class RowResponse<T> implements ContentEvent {
         return responseRow;
     }
 
+    public String getSourceKey() {
+        return sourceKey;
+    }
 
 }
