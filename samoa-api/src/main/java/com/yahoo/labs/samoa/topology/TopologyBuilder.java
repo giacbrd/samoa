@@ -148,6 +148,14 @@ public class TopologyBuilder {
         return inputStream;
     }
 
+    public Stream createInputDirectStream(Processor processor, Processor dest) {
+        Stream inputStream = this.createStream(dest);
+        ProcessingItem pi = (ProcessingItem) mapProcessorToProcessingItem.get(processor);
+        Preconditions.checkNotNull(pi, "Trying to connect to null PI");
+        pi.connectInputDirectStream(inputStream);
+        return inputStream;
+    }
+
     public Stream createStream(Processor processor) {
         IProcessingItem pi = mapProcessorToProcessingItem.get(processor);
         Stream ret = null;

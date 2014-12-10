@@ -158,4 +158,15 @@ public abstract class AbstractProcessingItem implements ProcessingItem {
     public ProcessingItem connectInputAllStream(Stream inputStream) {
     	return this.addInputStream(inputStream, PartitioningScheme.BROADCAST);
     }
+
+    /**
+     * Add an input stream to this ProcessingItem with DIRECT scheme
+     *
+     * @param inputStream
+     * 			the input stream
+     * @return this ProcessingItem
+     */
+    public ProcessingItem connectInputDirectStream(Stream inputStream) {
+        return this.addInputStream(inputStream, PartitioningScheme.DIRECT);
+    }
 }

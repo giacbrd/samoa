@@ -60,6 +60,17 @@ public interface ProcessingItem extends IProcessingItem {
 	 */
 	public ProcessingItem connectInputAllStream(Stream inputStream);
 
+    /**
+     * Connects this processing item to the stream in a direct fashion.
+     * This processing item must specify the ID of the processing item receiving the message,
+     * the event must be sent with putDirect().
+     *
+     * @param inputStream
+     *            Stream to connect this processing item.
+     * @return ProcessingItem
+     */
+    public ProcessingItem connectInputDirectStream(Stream inputStream);
+
 
 	/**
 	 * Gets processing item parallelism level.

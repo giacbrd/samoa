@@ -36,6 +36,15 @@ public interface Stream {
 	 * @param event
 	 */
 	public void put(ContentEvent event);
+
+    /**
+     * Puts events into a platform specific data stream,
+     * sending each event to a specific processing item.
+     *
+     * @param event
+     * @param id Identifies an unique processing item.
+     */
+    public void putDirect(ContentEvent event, int id);
 	
 	/**
 	 * Sets the stream id which is represented by a name.
