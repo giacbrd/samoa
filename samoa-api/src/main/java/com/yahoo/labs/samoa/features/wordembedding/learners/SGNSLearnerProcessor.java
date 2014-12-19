@@ -67,12 +67,13 @@ public class SGNSLearnerProcessor<T> implements Processor {
     private static final Logger logger = LoggerFactory.getLogger(SGNSLearnerProcessor.class);
 
     private final SGNSLearner learner;
-    private boolean lasteEventReceived = false;
+    private boolean lastEventReceived = false;
     private long seed = 1;
     private Stream synchroStream;
     private Stream modelStream;
     private int id;
     private long iterations;
+    private boolean modelAckSent = false;
     //FIXME substitute with guava cache
     private Map<String, LocalData<T>> tempData = new HashMap<String, LocalData<T>>();
 
@@ -90,7 +91,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            lasteEventReceived = true;
+            lastEventReceived = true;
         } else if (event instanceof SGNSItemEvent) {
             SGNSItemEvent itemPair = (SGNSItemEvent) event;
             T item = (T) itemPair.getItem();
@@ -109,11 +110,11 @@ public class SGNSLearnerProcessor<T> implements Processor {
                 }
             }
             if (localData.dataCount >= localData.totalData) {
-                //logger.info(id+":learn1 "+item+"-"+contextItem+" "+localData.dataCount+" "+localData.totalData);
+//                logger.info(id+":learn1 "+item+"-"+contextItem+" "+localData.dataCount+" "+localData.totalData);
                 learn(item, localData);
                 tempData.remove(localKey);
             } else {
-                //logger.info(id+":put "+item+"-"+contextItem);
+//                logger.info(id+":put "+item+"-"+contextItem+" SIZE:"+tempData.size());
                 tempData.put(localKey, localData);
                 if (!learner.contains(contextItem)) {
                     synchroStream.put(new RowRequest(localKey, item, itemPair.getContextItem()));
@@ -127,7 +128,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
         } else if (event instanceof RowRequest) {
             RowRequest request = (RowRequest) event;
             T requestedItem = (T) request.getRequestedItem();
-            //logger.info(id+":request "+request.getSourceItem()+" "+requestedItem);
+//            logger.info(id+":request "+request.getSourceItem()+" "+requestedItem);
             synchroStream.put(new RowResponse(
                     request.getSourceKey(), request.getSourceItem(), requestedItem, learner.getContextRow(requestedItem)));
         } else if (event instanceof RowResponse) {
@@ -136,24 +137,26 @@ public class SGNSLearnerProcessor<T> implements Processor {
             T sourceItem = (T) response.getSourceItem();
             T newItem = (T) response.getResponseItem();
             DoubleMatrix row = response.getResponseRow();
-            //logger.info(id+":get "+sourceItem+" "+newItem+" "+tempData.containsKey(sourceKey));
+//            logger.info(id+":get "+sourceItem+" "+newItem+" "+tempData.containsKey(sourceKey));
             LocalData<T> localData = tempData.get(sourceKey);
             localData.externalData.put(newItem, row);
             localData.dataCount++;
             if (localData.dataCount >= localData.totalData) {
-                //logger.info(id+":learn2 "+newItem+"-"+localData.contextItem+" "+localData.dataCount+" "+localData.totalData);
+//                logger.info(id+":learn2 "+sourceItem+"-"+localData.contextItem+" "+localData.dataCount+" "+localData.totalData);
                 learn(sourceItem, localData);
                 tempData.remove(sourceKey);
             }
         } else if (event instanceof RowUpdate) {
             RowUpdate update = (RowUpdate) event;
-            //logger.info(id+":update "+update.getItem());
+//            logger.info(id+":update "+update.getItem());
             learner.updateContextRow(update.getItem(), update.getGradient());
         }
         //FIXME this does not guarantee that all learners will write all their last learned words in the model
-        if (lasteEventReceived && tempData.isEmpty()) {
+        //FIXME optimize all this ugly stuff
+        if (lastEventReceived && tempData.isEmpty() && !modelAckSent) {
             logger.info(String.format("SGNSLearnerProcessor-%d: finished after %d iterations", id, iterations));
             modelStream.put(new ModelUpdateEvent(null, null, true));
+            modelAckSent = true;
         }
         return true;
     }
@@ -209,7 +212,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
         l.modelStream = p.modelStream;
         l.synchroStream = p.synchroStream;
         l.iterations = p.iterations;
-        l.lasteEventReceived = p.lasteEventReceived;
+        l.lastEventReceived = p.lastEventReceived;
         l.tempData = new HashMap<String, LocalData<T>>();
         for (Object key: p.tempData.keySet()) {
             l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());

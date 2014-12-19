@@ -51,6 +51,7 @@ public class SGNSLearner<T> implements Learner<T> {
             layerSize);
     public FloatOption alphaOption = new FloatOption("alpha", 'a', "The initial learning rate value.", alpha);
     public FloatOption minAlphaOption = new FloatOption("minAlpha", 'm', "The minimal learning rate value.", minAlpha);
+    private boolean firstInit = true;
 
     public SGNSLearner(int layerSize, double alpha, double minAlpha) {
         init(layerSize, alpha, minAlpha, seed);
@@ -65,8 +66,9 @@ public class SGNSLearner<T> implements Learner<T> {
         int newLayerSize = layerSizeOption.getValue();
         double newAlpha = alphaOption.getValue();
         double newMinAlpha = minAlphaOption.getValue();
-        if (newLayerSize != layerSize || newAlpha != alpha || newMinAlpha != minAlpha) {
+        if (firstInit || newLayerSize != layerSize || newAlpha != alpha || newMinAlpha != minAlpha) {
             init(newLayerSize, newAlpha, newMinAlpha, 1);
+            firstInit = false;
             return true;
         } else {
             return false;

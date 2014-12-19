@@ -73,21 +73,25 @@ public class IteratorEntrance<T> implements EntranceProcessor {
 
     @Override
     public boolean hasNext() {
-        if (iterator.hasNext()) {
-            lastElement = (T) iterator.next();
-            return true;
-        } else {
-            isFinished = true;
+        if (isFinished()) {
             return false;
         }
+        if (iterator.hasNext()) {
+            lastElement = (T) iterator.next();
+        } else {
+            isFinished = true;
+        }
+        return true;
     }
 
     @Override
     public ContentEvent nextEvent() {
         if (!isFinished()) {
             logger.debug("Sending in output " + lastElement.toString());
+//            logger.info("Sending in output " + lastElement.toString());
             return new OneContentEvent(lastElement, false);
         } else {
+//            logger.info("Sending in output last event");
             return new OneContentEvent(null, true);
         }
     }

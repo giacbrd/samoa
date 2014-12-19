@@ -61,6 +61,8 @@ public class Word2vecTask implements Task, Configurable {
             " one sentence per line, words are divided by a space.", null, "txt", false);
     public IntOption precomputedSentences = new IntOption("precomputedSentences", 'p', "Number of sentences on which word" +
             "statistics are computed before starting the training on them.", 20000);
+    public IntOption sentenceDelay = new IntOption("sentenceDelay", 'd', "Delay between each sentence sample, " +
+            "in millisecond.", 0);
     public IntOption indexParallelism = new IntOption("indexParallelism", 'g', "Number of index generators on which " +
             "words are distributed.", 1);
     public IntOption samplerParallelism = new IntOption("samplerParallelism", 'z', "Number of word samplers, each one " +
@@ -121,7 +123,7 @@ public class Word2vecTask implements Task, Configurable {
         wordsRouter.setDataAllStream(toBufferAll);
 
         // Buffer sentences before sending to distribution
-        buffer = new DataQueue(precomputedSentences.getValue());
+        buffer = new DataQueue(precomputedSentences.getValue(), sentenceDelay.getValue());
         // Set the number of buffers equal to the number of word samplers
         builder.addProcessor(buffer, samplerParallelism.getValue());
         builder.connectInputShuffleStream(toBuffer, buffer);

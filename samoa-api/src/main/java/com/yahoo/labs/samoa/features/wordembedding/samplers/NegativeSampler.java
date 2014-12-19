@@ -66,6 +66,7 @@ public class NegativeSampler<T> implements Sampler<T> {
             "in the article.", negative);
     public IntOption capacityOption = new IntOption("capacity", 'c', "The capacity of the counters for word counts " +
             "estimation.", capacity);
+    private boolean firstInit = true;
 
 
     public NegativeSampler(int negative, double power, int tableSize, double subsamplThr, int capacity,
@@ -85,9 +86,10 @@ public class NegativeSampler<T> implements Sampler<T> {
         double newSubsamplThr = subsamplThrOption.getValue();
         int newCapacity = capacityOption.getValue();
         int newItemsPerUpdate = itemsPerUpdateOption.getValue();
-        if (newNegative != negative || newPower != power || newTableSize != tableSize || newSubsamplThr != subsamplThr
-                || newCapacity != capacity || newItemsPerUpdate != itemsPerUpdate) {
+        if (firstInit || newNegative != negative || newPower != power || newTableSize != tableSize
+                || newSubsamplThr != subsamplThr || newCapacity != capacity || newItemsPerUpdate != itemsPerUpdate) {
             init(newNegative, newPower, newTableSize, newSubsamplThr, newCapacity, newItemsPerUpdate, 1);
+            firstInit = false;
             return true;
         } else {
             return false;

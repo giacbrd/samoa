@@ -45,8 +45,10 @@ public class DataQueue<T> implements Processor {
     /** Data bytes are computed on the string representation of items */
     private long totalBytes = 0;
     ArrayDeque<List<T>> queue;
+    long delay;
 
-    public DataQueue(int maxDataSamples) {
+    public DataQueue(int maxDataSamples, long delay) {
+        this.delay = delay;
         this.maxDataSamples = Math.max(1, maxDataSamples);
         queue = new ArrayDeque<List<T>>((int) this.maxDataSamples);
     }
@@ -59,39 +61,41 @@ public class DataQueue<T> implements Processor {
 
     @Override
     public boolean process(ContentEvent event) {
-        try {
-            if (event.isLastEvent()) {
-                while (!queue.isEmpty()) {
-                    pollData();
-                }
-                outputStream.put(new OneContentEvent<T>(null, true));
-                return true;
-            }
-            OneContentEvent contentEvent = (OneContentEvent) event;
-            Object content = contentEvent.getContent();
-            if (content != null) {
-                List<T> data = (List<T>) content;
-                queue.addFirst(data);
-                for (T item: data) {
-                    totalBytes += ((Object) item).toString().getBytes().length;
-                }
-            }
-            while (queue.size() >= maxDataSamples) {
+//        logger.info(this.getClass().getSimpleName()+"-{}: {} {}", id, queue.size(), event.isLastEvent());
+        if (event.isLastEvent()) {
+            while (!queue.isEmpty()) {
                 pollData();
             }
+//            logger.info(this.getClass().getSimpleName()+"-{}: last event, {}", id, queue.size());
+            outputStream.put(new OneContentEvent<T>(null, true));
             return true;
-        } catch (UnsupportedEncodingException e) {
-            // This can hardly happen
-            e.printStackTrace();
-            return false;
         }
+        OneContentEvent contentEvent = (OneContentEvent) event;
+        Object content = contentEvent.getContent();
+        if (content != null) {
+            List<T> data = (List<T>) content;
+            queue.addFirst(data);
+            for (T item: data) {
+                totalBytes += ((Object) item).toString().getBytes().length;
+            }
+        }
+        while (queue.size() >= maxDataSamples) {
+            pollData();
+        }
+        return true;
     }
 
-    private void pollData() throws UnsupportedEncodingException {
+    private void pollData() {
         List<T> outData = queue.pollLast();
         if (outData != null) {
             for (T item: outData) {
                 totalBytes -= ((Object) item).toString().getBytes().length;
+            }
+//            logger.info(this.getClass().getSimpleName()+"-{}: poll, {}", id, queue.size());
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
             outputStream.put(new OneContentEvent<List<T>>(outData, false));
         }
@@ -100,7 +104,7 @@ public class DataQueue<T> implements Processor {
     @Override
     public Processor newProcessor(Processor processor) {
         DataQueue p = (DataQueue) processor;
-        DataQueue s = new DataQueue(p.maxDataSamples);
+        DataQueue s = new DataQueue(p.maxDataSamples, p.delay);
         s.outputStream = p.outputStream;
         s.totalBytes = p.totalBytes;
         s.queue = new ArrayDeque<List<T>>(p.queue);

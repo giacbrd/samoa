@@ -77,6 +77,9 @@ public class Model<T> implements Processor {
                     oos.writeObject(syn0norm);
                     oos.close();
                     fos.close();
+                    logger.info("Model written in " + outPath.getAbsolutePath());
+                    logger.info("Exit!");
+                    System.exit(0);
                 } catch (IOException e) {
                     e.printStackTrace();
                     return false;

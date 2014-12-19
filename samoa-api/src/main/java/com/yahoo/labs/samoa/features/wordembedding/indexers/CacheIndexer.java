@@ -53,6 +53,7 @@ public class CacheIndexer<T> implements Indexer {
             "this time (in minutes), it is removed from the index and the model.", (int) itemExpiry);
     public IntOption minCountOption = new IntOption("minCount", 'm', "Ignore all items with total frequency lower than " +
             "this.", minCount);
+    private boolean firstInit = true;
 
     public CacheIndexer() {
         init(cacheSize, itemExpiry, minCount);
@@ -67,8 +68,9 @@ public class CacheIndexer<T> implements Indexer {
         long newCacheSize = cacheSizeOption.getValue();
         long newItemExpiry = itemExpiryOption.getValue();
         short newMinCount = (short) minCountOption.getValue();
-        if (newCacheSize != cacheSize || newItemExpiry != itemExpiry || newMinCount != minCount) {
+        if (firstInit || newCacheSize != cacheSize || newItemExpiry != itemExpiry || newMinCount != minCount) {
             init(newCacheSize, newItemExpiry, newMinCount);
+            firstInit = false;
             return true;
         } else {
             return false;

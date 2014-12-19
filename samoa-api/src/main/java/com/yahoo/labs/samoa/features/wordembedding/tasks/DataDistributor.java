@@ -57,6 +57,7 @@ public class DataDistributor<T> implements Processor {
 
     @Override
     public boolean process(ContentEvent event) {
+//        logger.info("DataDistr "+event.isLastEvent() +" "+ ((OneContentEvent<List<T>>) event).getContent());
         if (event.isLastEvent()) {
             for (int i = 0; i < parallelism; i++) {
                 itemStream.put(new OneContentEvent<List<T>>(null, true, Integer.toString(i)));

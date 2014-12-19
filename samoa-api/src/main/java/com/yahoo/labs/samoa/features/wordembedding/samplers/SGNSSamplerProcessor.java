@@ -59,6 +59,11 @@ public class SGNSSamplerProcessor<T> extends SamplerProcessor<T> {
                 negItems.add(negItem);
             }
         }
+//        try {
+//            Thread.sleep(0, 1);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
         learnerStream.put(new SGNSItemEvent(item, contextItem, negItems, false, item.toString()));
     }
 

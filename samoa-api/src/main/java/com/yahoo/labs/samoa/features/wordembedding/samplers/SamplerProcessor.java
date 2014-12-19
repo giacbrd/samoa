@@ -68,6 +68,10 @@ public abstract class SamplerProcessor<T> implements Processor {
 
     @Override
     public boolean process(ContentEvent event) {
+//        if (sampler.getItemCount() % 10 == 0) {
+//            logger.info(this.getClass().getSimpleName()+"-{} 111: after {} data samples, the vocabulary contains {} items " +
+//                    "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size());
+//        }
         if (event instanceof IndexUpdateEvent) {
             if (event.isLastEvent()) {
                 logger.info(this.getClass().getSimpleName()+"-{}: collected in vocabulary {} item types from a " +
@@ -85,8 +89,14 @@ public abstract class SamplerProcessor<T> implements Processor {
             for(T word: removeUpdate) {
                 sampler.remove(word);
             }
+//            if (sampler.getItemCount() % 10 == 0) {
+//                logger.info(this.getClass().getSimpleName()+"-{} 222: after {} data samples, the vocabulary contains {} items " +
+//                        "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size());
+//            }
         // When this type of events start to arrive, the vocabulary is already well filled
         } else if (event instanceof OneContentEvent) {
+//               logger.info(this.getClass().getSimpleName()+"-{} 333: after {} data samples, the vocabulary contains {} items. {} " +
+//                        "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size(), event.isLastEvent());
             if (event.isLastEvent()) {
                 logger.info(this.getClass().getSimpleName()+"-{}: collected {} item types from a corpus of {} items " +
                                 "and {} data samples", id, sampler.size(), sampler.getItemCount(), dataCount);
@@ -125,10 +135,10 @@ public abstract class SamplerProcessor<T> implements Processor {
                     }
                 }
             }
-        }
-        if (dataCount % 1000 == 0 && dataCount > 0) {
-            logger.info(this.getClass().getSimpleName()+"-{}: after {} data samples, the vocabulary contains {} items " +
-                            "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size());
+            if (dataCount % 1000 == 0 && dataCount > 0) {
+                logger.info(this.getClass().getSimpleName()+"-{}: after {} data samples, the vocabulary contains {} items " +
+                        "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size());
+            }
         }
         return true;
     }
