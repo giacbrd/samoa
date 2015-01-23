@@ -35,9 +35,9 @@ import java.util.Map;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SGNSLearner<T> implements Learner<T> {
+public class SGNSLocalLearner<T> implements Model<T> {
 
-    private static final Logger logger = LoggerFactory.getLogger(SGNSLearner.class);
+    private static final Logger logger = LoggerFactory.getLogger(SGNSLocalLearner.class);
     private static final long serialVersionUID = 8581722962299330045L;
 
     private Map<T, DoubleMatrix> syn0;
@@ -53,11 +53,11 @@ public class SGNSLearner<T> implements Learner<T> {
     public FloatOption minAlphaOption = new FloatOption("minAlpha", 'm', "The minimal learning rate value.", minAlpha);
     private boolean firstInit = true;
 
-    public SGNSLearner(int layerSize, double alpha, double minAlpha) {
+    public SGNSLocalLearner(int layerSize, double alpha, double minAlpha) {
         init(layerSize, alpha, minAlpha, seed);
     }
 
-    public SGNSLearner() {
+    public SGNSLocalLearner() {
         init(layerSize, alpha, minAlpha, seed);
     }
 
@@ -168,12 +168,10 @@ public class SGNSLearner<T> implements Learner<T> {
         return row;
     }
 
-    @Override
     public double getAlpha() {
         return alpha;
     }
 
-    @Override
     public double getMinAlpha() {
         return minAlpha;
     }
@@ -219,8 +217,8 @@ public class SGNSLearner<T> implements Learner<T> {
     }
 
     @Override
-    public Learner copy() {
-        SGNSLearner<T> l = new SGNSLearner<T>(layerSize, alpha, minAlpha);
+    public SGNSLocalLearner<T> copy() {
+        SGNSLocalLearner<T> l = new SGNSLocalLearner<T>(layerSize, alpha, minAlpha);
         l.alphaOption = (FloatOption) alphaOption.copy();
         l.minAlphaOption = (FloatOption) minAlphaOption.copy();
         l.layerSizeOption = (IntOption) layerSizeOption.copy();

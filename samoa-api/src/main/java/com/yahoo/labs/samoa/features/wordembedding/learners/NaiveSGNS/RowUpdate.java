@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.learners;
+package com.yahoo.labs.samoa.features.wordembedding.learners.NaiveSGNS;
 
 /*
  * #%L
@@ -26,22 +26,21 @@ import org.jblas.DoubleMatrix;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class RowResponse<T> implements ContentEvent {
+public class RowUpdate<T> implements ContentEvent {
 
-    private static final long serialVersionUID = -2931184484248922861L;
-    private final String sourceKey;
-    private final T sourceItem;
-    private final T responseItem;
-    private DoubleMatrix responseRow;
+    private static final long serialVersionUID = -2160261482784522833L;
+    private T item;
+    private DoubleMatrix gradient;
     private String key;
     private boolean isLastEvent = false;
 
-    public RowResponse(String sourceKey, T sourceItem, T responseItem, DoubleMatrix responseRow) {
-        this.sourceKey = sourceKey;
-        this.sourceItem = sourceItem;
-        this.responseItem = responseItem;
-        this.responseRow = responseRow;
-        this.key = sourceItem.toString();
+    public RowUpdate() {
+    }
+
+    public RowUpdate(T item, DoubleMatrix gradient) {
+        this.item = item;
+        this.gradient = gradient;
+        this.key = item.toString();
     }
 
     @Override
@@ -60,20 +59,12 @@ public class RowResponse<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getSourceItem() {
-        return sourceItem;
+    public T getItem() {
+        return item;
     }
 
-    public T getResponseItem() {
-        return responseItem;
-    }
-
-    public DoubleMatrix getResponseRow() {
-        return responseRow;
-    }
-
-    public String getSourceKey() {
-        return sourceKey;
+    public DoubleMatrix getGradient() {
+        return gradient;
     }
 
 }

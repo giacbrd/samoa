@@ -117,17 +117,16 @@ public class CacheIndexer<T> implements Indexer {
     }
 
     @Override
-    public Map.Entry<Map<T, Long>, Long> add(List data) {
+    public Map<T, Map.Entry<Long, Long>> add(List data) {
         totalItems += data.size();
         totalData++;
         Map<T, Long> currVocab = dataCount(data);
-        Map<T, Long> outVocab = new HashMap<T, Long>(currVocab.size());
+        Map<T, Map.Entry<Long, Long>> outVocab = new HashMap<T, Map.Entry<Long, Long>>(currVocab.size());
         Iterator<Map.Entry<T, Long>> vocabIter = currVocab.entrySet().iterator();
-        long incrementCount = 0;
         while (vocabIter.hasNext()) {
             Map.Entry<T, Long> vocabItem = vocabIter.next();
             T item = vocabItem.getKey();
-            long currCount = vocabItem.getValue();
+            long incrCount = vocabItem.getValue();
             long prevCount = 0;
             try {
                 prevCount = vocab.get(item);
@@ -135,16 +134,15 @@ public class CacheIndexer<T> implements Indexer {
                 logger.error("Cache access error for item: " + item);
                 e.printStackTrace();
             }
-            long newCount = prevCount + currCount;
+            long newCount = prevCount + incrCount;
             vocab.put(item, newCount);
             if (newCount >= minCount) {
-                outVocab.put(item, newCount);
-                incrementCount += currCount;
+                outVocab.put(item, new ImmutablePair<Long, Long>(prevCount, incrCount));
             }
         }
         // Do not remove just occurred words
         removeVocab.keySet().removeAll(outVocab.keySet());
-        return new ImmutablePair<Map<T, Long>, Long>(outVocab, incrementCount);
+        return outVocab;
     }
 
     private Map<T, Long> dataCount(List<T> data) {

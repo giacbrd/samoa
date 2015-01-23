@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.tasks;
+package com.yahoo.labs.samoa.features.wordembedding.learners.NaiveSGNS;
 
 /*
  * #%L
@@ -21,29 +21,31 @@ package com.yahoo.labs.samoa.features.wordembedding.tasks;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
+import org.jblas.DoubleMatrix;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class OneContentEvent<T> implements ContentEvent {
+public class RowResponse<T> implements ContentEvent {
 
-    private static final long serialVersionUID = -7858923507064830826L;
+    private static final long serialVersionUID = -2931184484248922861L;
+    private String sourceKey;
+    private T sourceItem;
+    private T responseItem;
+    private DoubleMatrix responseRow;
     private String key;
-    private T content;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public OneContentEvent() {
+    public RowResponse() {
     }
 
-    public OneContentEvent(T content, boolean isLastEvent) {
-        this.content = content;
-        this.isLastEvent = isLastEvent;
+    public RowResponse(String sourceKey, T sourceItem, T responseItem, DoubleMatrix responseRow) {
+        this.sourceKey = sourceKey;
+        this.sourceItem = sourceItem;
+        this.responseItem = responseItem;
+        this.responseRow = responseRow;
+        this.key = sourceItem.toString();
     }
-    public OneContentEvent(T content, boolean isLastEvent, String key) {
-        this(content, isLastEvent);
-        this.key = key;
-    }
-
 
     @Override
     public String getKey() {
@@ -52,6 +54,7 @@ public class OneContentEvent<T> implements ContentEvent {
 
     @Override
     public void setKey(String key) {
+
         this.key = key;
     }
 
@@ -60,7 +63,20 @@ public class OneContentEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getContent() {
-        return content;
+    public T getSourceItem() {
+        return sourceItem;
     }
+
+    public T getResponseItem() {
+        return responseItem;
+    }
+
+    public DoubleMatrix getResponseRow() {
+        return responseRow;
+    }
+
+    public String getSourceKey() {
+        return sourceKey;
+    }
+
 }

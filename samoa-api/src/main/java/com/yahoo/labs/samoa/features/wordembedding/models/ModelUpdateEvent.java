@@ -34,6 +34,9 @@ public class ModelUpdateEvent<T> implements ContentEvent {
     private DoubleMatrix row;
     private boolean isLastEvent;
 
+    public ModelUpdateEvent() {
+    }
+
     public ModelUpdateEvent(T word, DoubleMatrix row, boolean isLastEvent) {
         this.word = word;
         this.row = row;

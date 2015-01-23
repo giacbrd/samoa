@@ -27,8 +27,6 @@ import org.apache.commons.collections.ResettableIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Iterator;
-
 /**
  * A simple entrance processor which produces events from an iterator.
  *
@@ -43,9 +41,14 @@ public class IteratorEntrance<T> implements EntranceProcessor {
     private ResettableIterator iterator;
     private boolean isFinished = false;
     private T lastElement;
+    private long delay;
+    private int noDelaySamples;
+    private int samplesCount = 0;
 
-    public IteratorEntrance(ResettableIterator iterator) {
+    public IteratorEntrance(ResettableIterator iterator, long delay, int noDelaySamples) {
         this.iterator = iterator;
+        this.delay = delay;
+        this.noDelaySamples = noDelaySamples;
     }
 
     @Override
@@ -63,7 +66,9 @@ public class IteratorEntrance<T> implements EntranceProcessor {
     @Override
     public Processor newProcessor(Processor processor) {
         IteratorEntrance p = (IteratorEntrance) processor;
-        return new IteratorEntrance(p.iterator);
+        IteratorEntrance i = new IteratorEntrance(p.iterator, p.delay, p.noDelaySamples);
+        i.samplesCount = p.samplesCount;
+        return i;
     }
 
     @Override
@@ -86,8 +91,16 @@ public class IteratorEntrance<T> implements EntranceProcessor {
 
     @Override
     public ContentEvent nextEvent() {
+        samplesCount++;
+        if (samplesCount > noDelaySamples) {
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
         if (!isFinished()) {
-            logger.debug("Sending in output " + lastElement.toString());
+            logger.debug("Sending in output: " + lastElement.toString());
 //            logger.info("Sending in output " + lastElement.toString());
             return new OneContentEvent(lastElement, false);
         } else {

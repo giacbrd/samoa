@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -73,7 +74,8 @@ public class SentenceIterator implements ResettableIterator, Serializable {
     }
 
     public List<String> next() {
-        return Arrays.asList(iterator.next().trim().split(separator));
+        // This "double" construction of the list is necessary for making Kryo works
+        return new ArrayList<String>(Arrays.asList(iterator.next().trim().split(separator)));
     }
 
     @Override

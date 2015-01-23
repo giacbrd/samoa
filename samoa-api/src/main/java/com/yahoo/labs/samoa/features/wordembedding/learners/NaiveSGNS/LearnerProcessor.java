@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.learners;
+package com.yahoo.labs.samoa.features.wordembedding.learners.NaiveSGNS;
 
 /*
  * #%L
@@ -22,7 +22,8 @@ package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
-import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSItemEvent;
+import com.yahoo.labs.samoa.features.wordembedding.learners.SGNSLocalLearner;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.ItemEvent;
 import com.yahoo.labs.samoa.features.wordembedding.models.ModelUpdateEvent;
 import com.yahoo.labs.samoa.topology.Stream;
 import org.jblas.DoubleMatrix;
@@ -35,7 +36,7 @@ import java.util.*;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SGNSLearnerProcessor<T> implements Processor {
+public class LearnerProcessor<T> implements Processor {
 
     private static final long serialVersionUID = -1333212366354785743L;
 
@@ -64,10 +65,9 @@ public class SGNSLearnerProcessor<T> implements Processor {
         }
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(SGNSLearnerProcessor.class);
+    private static final Logger logger = LoggerFactory.getLogger(LearnerProcessor.class);
 
-    private final SGNSLearner learner;
-    private boolean lastEventReceived = false;
+    private final SGNSLocalLearner learner;
     private long seed = 1;
     private Stream synchroStream;
     private Stream modelStream;
@@ -76,9 +76,12 @@ public class SGNSLearnerProcessor<T> implements Processor {
     private boolean modelAckSent = false;
     //FIXME substitute with guava cache
     private Map<String, LocalData<T>> tempData = new HashMap<String, LocalData<T>>();
+    private int lastEventCount = 0;
+    private int samplerCount;
 
-    public SGNSLearnerProcessor(Learner learner) {
-        this.learner = (SGNSLearner) learner;
+    public LearnerProcessor(SGNSLocalLearner localLearner, int samplerCount) {
+        this.samplerCount = samplerCount;
+        this.learner = localLearner;
     }
 
     @Override
@@ -91,9 +94,9 @@ public class SGNSLearnerProcessor<T> implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            lastEventReceived = true;
-        } else if (event instanceof SGNSItemEvent) {
-            SGNSItemEvent itemPair = (SGNSItemEvent) event;
+            lastEventCount++;
+        } else if (event instanceof ItemEvent) {
+            ItemEvent itemPair = (ItemEvent) event;
             T item = (T) itemPair.getItem();
             T contextItem = (T) itemPair.getContextItem();
             List<T> negItems = itemPair.getNegItems();
@@ -151,10 +154,9 @@ public class SGNSLearnerProcessor<T> implements Processor {
 //            logger.info(id+":update "+update.getItem());
             learner.updateContextRow(update.getItem(), update.getGradient());
         }
-        //FIXME this does not guarantee that all learners will write all their last learned words in the model
         //FIXME optimize all this ugly stuff
-        if (lastEventReceived && tempData.isEmpty() && !modelAckSent) {
-            logger.info(String.format("SGNSLearnerProcessor-%d: finished after %d iterations", id, iterations));
+        if (lastEventCount >= samplerCount && tempData.isEmpty() && !modelAckSent) {
+            logger.info(String.format("LearnerProcessor-%d: finished after %d iterations", id, iterations));
             modelStream.put(new ModelUpdateEvent(null, null, true));
             modelAckSent = true;
         }
@@ -172,7 +174,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
         DoubleMatrix outRow = learner.getRow(item);
         iterations++;
         if (iterations % 1000000 == 0) {
-            logger.info(String.format("SGNSLearnerProcessor-%d: at %d iterations", id, iterations));
+            logger.info(String.format("LearnerProcessor-%d: at %d iterations", id, iterations));
         }
         if (!learner.contains(contextItem)) {
             synchroStream.put(new RowUpdate(contextItem, gradientUpdates.get(contextItem)));
@@ -192,7 +194,7 @@ public class SGNSLearnerProcessor<T> implements Processor {
 //            modelStream.put(new ModelUpdateEvent(null, null, true));
 //            return true;
 //        }
-//        SGNSItemEvent itemPair = (SGNSItemEvent) event;
+//        ItemEvent itemPair = (ItemEvent) event;
 //        T item = (T) itemPair.getItem();
 //        learner.train(item, itemPair.getContextItem(), itemPair.getNegItems(), new HashMap());
 //        DoubleMatrix row = learner.getRow(item);
@@ -206,13 +208,13 @@ public class SGNSLearnerProcessor<T> implements Processor {
 
     @Override
     public Processor newProcessor(Processor processor) {
-        SGNSLearnerProcessor p = (SGNSLearnerProcessor) processor;
-        SGNSLearnerProcessor l = new SGNSLearnerProcessor(p.learner.copy());
+        LearnerProcessor p = (LearnerProcessor) processor;
+        LearnerProcessor l = new LearnerProcessor(p.learner.copy(), p.samplerCount);
         l.setSeed(p.seed);
+        l.lastEventCount = p.lastEventCount;
         l.modelStream = p.modelStream;
         l.synchroStream = p.synchroStream;
         l.iterations = p.iterations;
-        l.lastEventReceived = p.lastEventReceived;
         l.tempData = new HashMap<String, LocalData<T>>();
         for (Object key: p.tempData.keySet()) {
             l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());

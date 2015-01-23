@@ -28,7 +28,7 @@ import java.io.Serializable;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface Learner<T> extends Configurable, Serializable {
+public interface Model<T> {
 
     /**
      * Initialize the configuration with the CLI options.
@@ -36,10 +36,6 @@ public interface Learner<T> extends Configurable, Serializable {
      * @return True if new configuration options are set.
      */
     boolean initConfiguration();
-
-    double getAlpha();
-
-    double getMinAlpha();
 
     int columns();
 
@@ -53,7 +49,7 @@ public interface Learner<T> extends Configurable, Serializable {
 
     void updateContextRow(T item, DoubleMatrix update);
 
-    boolean contains (T item);
+    boolean contains(T item);
 
     void setSeed(long seed);
 
@@ -64,5 +60,5 @@ public interface Learner<T> extends Configurable, Serializable {
 //     */
 //    void train(T item, T contextItem);
 
-    Learner<T> copy();
+    Model<T> copy();
 }

@@ -47,12 +47,16 @@ public class Model<T> implements Processor {
     private int id;
     private HashMap<T, MutablePair<DoubleMatrix, Long>> syn0norm;
     private File outPath;
+    private int lastEventCount = 0;
+    private int learnerCount;
 
-    public Model() {
+    public Model(int learnerCount) {
+        this.learnerCount = learnerCount;
         this.outPath = null;
     }
 
-    public Model(File outPath) {
+    public Model(int learnerCount, File outPath) {
+        this.learnerCount = learnerCount;
         this.outPath = outPath;
     }
 
@@ -65,21 +69,26 @@ public class Model<T> implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            if (outPath != null) {
+            lastEventCount++;
+            if (lastEventCount >= learnerCount) {
                 try {
-                    if (!outPath.isFile()) {
-                        outPath.mkdirs();
+                    if (outPath != null) {
+                        if (!outPath.isFile()) {
+                            outPath.mkdirs();
+                        } else {
+                            throw new IOException("Model path is an existing file.");
+                        }
+                        FileOutputStream fos = new FileOutputStream(outPath.getAbsolutePath() + File.separator + "syn0norm");
+                        ObjectOutputStream oos = new ObjectOutputStream(fos);
+                        oos.writeObject(syn0norm);
+                        oos.close();
+                        fos.close();
+                        logger.info("Model written in " + outPath.getAbsolutePath());
+                        logger.info("Exit!");
+                        System.exit(0);
                     } else {
-                        throw new IOException("Model path is an existing file.");
+                        throw new IOException("Model path is not set.");
                     }
-                    FileOutputStream fos = new FileOutputStream(outPath.getAbsolutePath() + File.separator + "syn0norm");
-                    ObjectOutputStream oos = new ObjectOutputStream(fos);
-                    oos.writeObject(syn0norm);
-                    oos.close();
-                    fos.close();
-                    logger.info("Model written in " + outPath.getAbsolutePath());
-                    logger.info("Exit!");
-                    System.exit(0);
                 } catch (IOException e) {
                     e.printStackTrace();
                     return false;
@@ -118,7 +127,8 @@ public class Model<T> implements Processor {
     @Override
     public Processor newProcessor(Processor processor) {
         Model p = (Model) processor;
-        Model m = new Model();
+        Model m = new Model(p.learnerCount);
+        m.lastEventCount = p.lastEventCount;
         m.outputStream = p.outputStream;
         m.syn0norm = p.syn0norm;
         m.outPath = p.outPath;

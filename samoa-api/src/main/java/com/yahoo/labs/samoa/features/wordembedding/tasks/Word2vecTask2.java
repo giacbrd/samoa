@@ -20,11 +20,7 @@ package com.yahoo.labs.samoa.features.wordembedding.tasks;
  * #L%
  */
 
-import com.github.javacliparser.Configurable;
-import com.github.javacliparser.IntOption;
-import com.github.javacliparser.FileOption;
-import com.github.javacliparser.StringOption;
-import com.github.javacliparser.ClassOption;
+import com.github.javacliparser.*;
 import com.yahoo.labs.samoa.features.wordembedding.indexers.CacheIndexer;
 import com.yahoo.labs.samoa.features.wordembedding.indexers.Indexer;
 import com.yahoo.labs.samoa.features.wordembedding.indexers.IndexerProcessor;
@@ -33,6 +29,7 @@ import com.yahoo.labs.samoa.features.wordembedding.learners.SGNSLocalLearner;
 import com.yahoo.labs.samoa.features.wordembedding.models.Model;
 import com.yahoo.labs.samoa.features.wordembedding.samplers.NegativeSampler;
 import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSItemGenerator;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSItemGenerator2;
 import com.yahoo.labs.samoa.tasks.Task;
 import com.yahoo.labs.samoa.topology.ComponentFactory;
 import com.yahoo.labs.samoa.topology.Stream;
@@ -49,9 +46,9 @@ import java.util.Date;
  *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Word2vecTask implements Task, Configurable {
+public class Word2vecTask2 implements Task, Configurable {
 
-    private static final Logger logger = LoggerFactory.getLogger(Word2vecTask.class);
+    private static final Logger logger = LoggerFactory.getLogger(Word2vecTask2.class);
     private static final long serialVersionUID = -8679039729207387792L;
 
     public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
@@ -89,7 +86,7 @@ public class Word2vecTask implements Task, Configurable {
     private IndexerProcessor indexerProcessor;
     private Stream toSampler2;
     private Stream toLearner;
-    private SGNSItemGenerator samplerProcessor;
+    private SGNSItemGenerator2 samplerProcessor;
     private Stream toBuffer;
     private DataQueue buffer;
     private Stream toSampler1;
@@ -124,7 +121,6 @@ public class Word2vecTask implements Task, Configurable {
         wordsRouter.setDataAllStream(toBufferAll);
 
         // Buffer sentences before sending to distribution
-        //FIXME need a specific parallelism parameter
         buffer = new DataQueue(precomputedSentences.getValue() / samplerParallelism.getValue(), sentenceDelay.getValue());
         // Set the number of buffers equal to the number of word samplers
         builder.addProcessor(buffer, samplerParallelism.getValue());
@@ -142,8 +138,8 @@ public class Word2vecTask implements Task, Configurable {
         indexerProcessor.setOutputStream(toSampler2);
 
         // Sample and distribute word pairs
-        samplerProcessor = new SGNSItemGenerator((NegativeSampler) itemSamplerOption.getValue(),
-                (short) windowOption.getValue());
+        samplerProcessor = new SGNSItemGenerator2((NegativeSampler) itemSamplerOption.getValue(),
+                (short) windowOption.getValue(), learnerParallelism.getValue());
         samplerProcessor.setSeed(seedOption.getValue());
         builder.addProcessor(samplerProcessor, samplerParallelism.getValue());
         // Each word sampler receives from a single sentence buffer

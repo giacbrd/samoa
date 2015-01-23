@@ -46,19 +46,19 @@ public interface Sampler<T> extends Configurable, Serializable {
     List<T> undersample(List<T> data);
 
     /**
-     * "Manually" update internal items distribution representation, possibly asynchronously
+     * "Manually" update internal items distribution representation, possibly asynchronously.
      */
     void update();
 
     /**
      * The frequency (count) of an item, used for computing sampling probabilities.
      * @param item
-     * @return The item's frequency, 0 if the item does not exist
+     * @return The item's frequency, 0 if the item does not exist.
      */
     long get(T item);
 
     /**
-     * Set the new frequency of the itemt.
+     * Set the new frequency of the item.
      * @param item
      * @param frequency
      */
@@ -77,7 +77,7 @@ public interface Sampler<T> extends Configurable, Serializable {
     Sampler<T> copy();
 
     /**
-     * Set the true sum of item frequencies, so that the sampler can have the exact value and not an approximate one
+     * Set the true sum of item frequencies, so that the sampler can have the exact value and not an approximated one.
      * @param itemCount
      */
     void setItemCount(long itemCount);

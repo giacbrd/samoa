@@ -58,27 +58,22 @@ public class IndexerProcessor<T> implements Processor {
         if (event.isLastEvent()) {
             logger.info("IndexerProcessor-{}: collected {} item types from a corpus of {} items and {} data samples",
                     id, indexer.size(), indexer.itemCount(), indexer.dataCount());
-            outputStream.put(new IndexUpdateEvent(null, null, 0, true));
+            outputStream.put(new IndexUpdateEvent(null, null, true));
             return true;
         }
         OneContentEvent content = (OneContentEvent) event;
         List<T> data = (List<T>) content.getContent();
-        Map.Entry<Map<T, Long>, Long> update = indexer.add(data);
-        Map<T, Long> itemVocab = update.getKey();
-        long itemCount = update.getValue();
+        Map<T, Map.Entry<Long, Long>> update = indexer.add(data);
         Map<T, Long> removeVocab = indexer.getRemoved();
         long dataCount = indexer.dataCount();
         //FIXME this works because data increments by 1 at each add
         if (dataCount % 1000 == 0 && dataCount > 0) {
-            logger.info("IndexerProcessor-{}: after {} sentences, processed {} items and {} item types",
-                    id, indexer.size(), indexer.itemCount(), dataCount);
+            logger.info("IndexerProcessor-{}: after {} data samples, processed {} items and {} item types",
+                    id, indexer.dataCount(), indexer.itemCount(), indexer.size());
         }
-        long removeCount = 0;
-        for (long count: removeVocab.values()) {
-            removeCount += count;
-        }
-        if (itemCount != 0 || removeCount != 0) {
-            outputStream.put(new IndexUpdateEvent(itemVocab, removeVocab.keySet(), itemCount - removeCount, false));
+        if (!update.isEmpty() || !removeVocab.isEmpty()) {
+            // This "double" construction of the Set is necessary for making Kryo works
+            outputStream.put(new IndexUpdateEvent(update, removeVocab, false));
         }
         return true;
     }

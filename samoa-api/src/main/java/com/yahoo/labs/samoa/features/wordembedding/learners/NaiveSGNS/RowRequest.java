@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.learners;
+package com.yahoo.labs.samoa.features.wordembedding.learners.NaiveSGNS;
 
 /*
  * #%L
@@ -21,23 +21,29 @@ package com.yahoo.labs.samoa.features.wordembedding.learners;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
-import org.jblas.DoubleMatrix;
+
+import java.util.List;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class RowUpdate<T> implements ContentEvent {
+public class RowRequest<T> implements ContentEvent {
 
-    private static final long serialVersionUID = -2160261482784522833L;
-    private final T item;
-    private final DoubleMatrix gradient;
+    private static final long serialVersionUID = 4705812110929345641L;
+    private String sourceKey;
+    private T sourceItem;
+    private T requestedItem;
     private String key;
     private boolean isLastEvent = false;
 
-    public RowUpdate(T item, DoubleMatrix gradient) {
-        this.item = item;
-        this.gradient = gradient;
-        this.key = item.toString();
+    public RowRequest() {
+    }
+
+    public RowRequest(String sourceKey, T sourceItem, T requestedItem) {
+        this.sourceKey = sourceKey;
+        this.sourceItem = sourceItem;
+        this.requestedItem = requestedItem;
+        this.key = requestedItem.toString();
     }
 
     @Override
@@ -56,12 +62,16 @@ public class RowUpdate<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getItem() {
-        return item;
+    public T getSourceItem() {
+        return sourceItem;
     }
 
-    public DoubleMatrix getGradient() {
-        return gradient;
+    public T getRequestedItem() {
+        return requestedItem;
+    }
+
+    public String getSourceKey() {
+        return sourceKey;
     }
 
 }

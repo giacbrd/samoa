@@ -35,6 +35,7 @@ import java.util.Map;
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
 
+//FIXME subclass UnderSampler
 public class NegativeSampler<T> implements Sampler<T> {
 
     private static final long serialVersionUID = 7708675565227109637L;
@@ -109,6 +110,7 @@ public class NegativeSampler<T> implements Sampler<T> {
         index2item = new Object[0];
         normFactor = 1.0;
         itemCount = 0;
+        //TODO a very interesting alternative is time-aware counter: yongsub_CIKM2014.pdf
         vocab = new StreamSummary<T>(capacity);
     }
 
@@ -119,7 +121,7 @@ public class NegativeSampler<T> implements Sampler<T> {
             if (vocab.containsKey(item)) {
                 long count = vocab.get(item);
                 // Subsampling probability
-                double prob = Math.min(subsamplThr > 0 ? Math.sqrt(subsamplThr / ((double)count / itemCount)) : 1.0, 1.0);
+                double prob = Math.min(subsamplThr > 0 ? Math.sqrt(subsamplThr / ((double) count / itemCount)) : 1.0, 1.0);
                 if (prob >= 1.0 || prob >= Random.nextDouble()) {
                     sampledData.add(item);
                 }
@@ -223,7 +225,6 @@ public class NegativeSampler<T> implements Sampler<T> {
     @Override
     public Sampler<T> copy() {
         NegativeSampler<T> s = new NegativeSampler<T>(negative, power, tableSize, subsamplThr, capacity, itemsPerUpdate);
-        s.setSeed(seed);
         s.setSeed(seed);
         s.itemUpdates = itemUpdates;
         s.index2item = index2item.clone();

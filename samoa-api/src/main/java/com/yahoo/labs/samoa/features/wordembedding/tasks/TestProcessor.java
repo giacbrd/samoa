@@ -22,7 +22,7 @@ package com.yahoo.labs.samoa.features.wordembedding.tasks;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
-import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSItemEvent;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.ItemEvent;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
@@ -30,7 +30,7 @@ import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSItemEvent;
 public class TestProcessor implements Processor {
     @Override
     public boolean process(ContentEvent event) {
-        SGNSItemEvent e = (SGNSItemEvent) event;
+        ItemEvent e = (ItemEvent) event;
         //System.out.println(e.getItem() + " " + e.getContextItem());
         return true;
     }

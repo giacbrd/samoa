@@ -27,23 +27,26 @@ import java.util.List;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class SGNSItemEvent<T> implements ContentEvent {
+public class ItemEvent<T> implements ContentEvent {
 
     private static final long serialVersionUID = 278023268642657276L;
-    private final T item;
-    private final T contextItem;
-    private final List<T> negItems;
+    private T item;
+    private T contextItem;
+    private List<T> negItems;
     private String key;
     private boolean isLastEvent;
 
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent) {
+    public ItemEvent() {
+    }
+
+    public ItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent) {
         this.item = item;
         this.contextItem = contextItem;
         this.negItems = negItems;
         this.isLastEvent = isLastEvent;
     }
 
-    public SGNSItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent, String key) {
+    public ItemEvent(T item, T contextItem, List<T> negItems, boolean isLastEvent, String key) {
         this(item, contextItem, negItems, isLastEvent);
         this.key = key;
     }

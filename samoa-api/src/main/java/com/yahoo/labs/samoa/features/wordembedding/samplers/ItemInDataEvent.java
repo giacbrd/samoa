@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.learners;
+package com.yahoo.labs.samoa.features.wordembedding.samplers;
 
 /*
  * #%L
@@ -22,25 +22,29 @@ package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 import com.yahoo.labs.samoa.core.ContentEvent;
 
-import java.util.List;
-
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class RowRequest<T> implements ContentEvent {
+public class ItemInDataEvent<T> implements ContentEvent {
 
-    private static final long serialVersionUID = 4705812110929345641L;
-    private final String sourceKey;
-    private final T sourceItem;
-    private final T requestedItem;
+    private static final long serialVersionUID = 278023268642657276L;
+    private T item;
+    private long dataID;
+    private int position;
     private String key;
-    private boolean isLastEvent = false;
+    private int dataSize;
+    private boolean isLastEvent;
 
-    public RowRequest(String sourceKey, T sourceItem, T requestedItem) {
-        this.sourceKey = sourceKey;
-        this.sourceItem = sourceItem;
-        this.requestedItem = requestedItem;
-        this.key = requestedItem.toString();
+    public ItemInDataEvent() {
+    }
+
+    public ItemInDataEvent(T item, long dataID, int position, int dataSize, boolean isLastEvent, String key) {
+        this.item = item;
+        this.dataID = dataID;
+        this.position = position;
+        this.dataSize = dataSize;
+        this.isLastEvent = isLastEvent;
+        this.key = key;
     }
 
     @Override
@@ -59,16 +63,8 @@ public class RowRequest<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getSourceItem() {
-        return sourceItem;
-    }
-
-    public T getRequestedItem() {
-        return requestedItem;
-    }
-
-    public String getSourceKey() {
-        return sourceKey;
+    public T getItem() {
+        return item;
     }
 
 }

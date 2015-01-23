@@ -44,9 +44,9 @@ public interface Indexer<T> extends Configurable, Serializable {
      * The returned items are a subset of the input data,
      * they are filtered according to some Indexer rule (e.g., no items less frequent than...)
      * @param data A list of items to index/count
-     * @return The new, total counts of a subset of the added items, and the sum of the count increments.
+     * @return For each added item, its old and new count after the add.
      */
-    Map.Entry<Map<T, Long>, Long> add(List<T> data);
+    Map<T, Map.Entry<Long, Long>> add(List<T> data);
 
     /**
      * The items eventually removed after any operation on the index.
