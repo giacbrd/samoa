@@ -25,22 +25,21 @@ import com.yahoo.labs.samoa.core.ContentEvent;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class ItemInDataEvent<T> implements ContentEvent {
+public class DataIDEvent<T> implements ContentEvent {
 
-    private static final long serialVersionUID = 278023268642657276L;
-    private T item;
+    private static final long serialVersionUID = 9060297831528202419L;
+
     private long dataID;
-    private int position;
     private String key;
     private boolean isLastEvent;
+    private int dataSize;
 
-    public ItemInDataEvent() {
+    public DataIDEvent() {
     }
 
-    public ItemInDataEvent(T item, long dataID, int position, boolean isLastEvent, String key) {
-        this.item = item;
+    public DataIDEvent(long dataID, int dataSize, boolean isLastEvent, String key) {
+        this.dataSize = dataSize;
         this.dataID = dataID;
-        this.position = position;
         this.isLastEvent = isLastEvent;
         this.key = key;
     }
@@ -61,15 +60,11 @@ public class ItemInDataEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getItem() {
-        return item;
-    }
-
-    public long getDataID() {
+    public long geDataID() {
         return dataID;
     }
 
-    public int getPosition() {
-        return position;
+    public int getDataSize() {
+        return dataSize;
     }
 }

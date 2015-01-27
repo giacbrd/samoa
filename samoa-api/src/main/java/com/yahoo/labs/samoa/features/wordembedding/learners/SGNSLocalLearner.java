@@ -23,6 +23,8 @@ package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.IntOption;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.jblas.DoubleMatrix;
 import org.jblas.MatrixFunctions;
 import org.slf4j.Logger;
@@ -35,6 +37,7 @@ import java.util.Map;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
+//FIXME subclass SGNSLocalModel
 public class SGNSLocalLearner<T> implements Model<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(SGNSLocalLearner.class);
@@ -46,6 +49,7 @@ public class SGNSLocalLearner<T> implements Model<T> {
     private Map<T, DoubleMatrix> syn1neg;
     private double alpha = 0.025;
     private double minAlpha = 0.0001;
+    private Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows;
 
     public IntOption layerSizeOption = new IntOption("layerSize", 'l', "The number of columns of the model matrices.",
             layerSize);
@@ -82,16 +86,23 @@ public class SGNSLocalLearner<T> implements Model<T> {
         this.seed = seed;
         syn0 = new HashMap<T, DoubleMatrix>(1000000);
         syn1neg = new HashMap<T, DoubleMatrix>(1000000);
+        externalRows = new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>();
     }
 
 
-    public Map<T, DoubleMatrix> train(T item, T contextItem, List<T> negItems, Map<T, DoubleMatrix> externalRows) {
-        Map<T, DoubleMatrix> gradients = new HashMap<>(externalRows.size());
-        DoubleMatrix l1 = getRowGlobally(item, externalRows);
+    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> train(T item, T contextItem, List<T> negItems) {
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradients = new HashMap<>(externalRows.size());
+        for (T key: externalRows.keySet()) {
+            gradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>());
+        }
+        DoubleMatrix l1 = getRowGlobally(item);
+        //logger.info("_ "+item +" "+getRowGlobally(item));
         DoubleMatrix l2b = new DoubleMatrix(negItems.size()+1, layerSize);
-        l2b.putRow(0, getContextRowGlobally(contextItem, externalRows));
+        //logger.info("c "+contextItem +" "+getContextRowGlobally(contextItem));
+        l2b.putRow(0, getContextRowGlobally(contextItem));
         for (int i = 1; i < l2b.rows; i++) {
-            l2b.putRow(i, getContextRowGlobally(negItems.get(i - 1), externalRows));
+            //logger.info("N " + negItems.get(i - 1) +" "+getContextRowGlobally(negItems.get(i - 1)));
+            l2b.putRow(i, getContextRowGlobally(negItems.get(i - 1)));
         }
         DoubleMatrix labels = DoubleMatrix.zeros(l2b.rows);
         labels.put(0, 1.0);
@@ -107,43 +118,61 @@ public class SGNSLocalLearner<T> implements Model<T> {
 //        logger.info(alpha+ " " + gb);
         // Now update matrices X and C
         // Learn C
+        DoubleMatrix contextGradient = l1.mul(gb.get(0));
+        DoubleMatrix newContextRow = l2b.getRow(0).add(contextGradient);
         if (externalRows.containsKey(contextItem)) {
-            gradients.put(contextItem, l1.mul(gb.get(0)));
-        } else {
-            syn1neg.put(contextItem, l2b.getRow(0).add(l1.mul(gb.get(0))));
+            gradients.get(contextItem).setRight(contextGradient);
         }
+        setContextRowGlobally(contextItem, newContextRow);
         ListIterator<T> negItemsIter = negItems.listIterator();
         for (int i = 1; i < l2b.rows; i++) {
-            T wordNeg = negItemsIter.next();
-            if (externalRows.containsKey(wordNeg)) {
-                gradients.put(wordNeg, l1.mul(gb.get(i)));
-            } else {
-                syn1neg.put(wordNeg, l2b.getRow(i).add(l1.mul(gb.get(i))));
+            T negItem = negItemsIter.next();
+            DoubleMatrix negGradient = l1.mul(gb.get(i));
+            DoubleMatrix newNegRow = l2b.getRow(i).add(negGradient);
+            if (externalRows.containsKey(negItem)) {
+                gradients.get(negItem).setRight(negGradient);
             }
+            setContextRowGlobally(negItem, newNegRow);
         }
         // Gradient error for learning W
         DoubleMatrix neu1e = gb.transpose().mmul(l2b);
+        DoubleMatrix newRow = l1.addi(neu1e);
         if (externalRows.containsKey(item)) {
-            gradients.put(item, neu1e);
-        } else {
-            //FIXME is it necessary to put back l1? for now yes
-            syn0.put(item, l1.addi(neu1e));
+            gradients.get(item).setLeft(neu1e);
         }
+        //FIXME is it necessary to put back l1? for now yes
+        setRowGlobally(item, newRow);
         //logger.info(syn0.get(item) + "\n" + syn1neg.get(contextItem));
         return gradients;
     }
 
-    private DoubleMatrix getContextRowGlobally(T contextItem,  Map<T, DoubleMatrix> externalRows) {
+    private void setContextRowGlobally(T contextItem, DoubleMatrix contextRow) {
         if (externalRows.containsKey(contextItem)) {
-            return externalRows.get(contextItem);
+            externalRows.get(contextItem).setRight(contextRow);
+        } else {
+            syn1neg.put(contextItem, contextRow);
+        }
+    }
+
+    private void setRowGlobally(T item, DoubleMatrix row) {
+        if (externalRows.containsKey(item)) {
+            externalRows.get(item).setLeft(row);
+        } else {
+            syn0.put(item, row);
+        }
+    }
+
+    private DoubleMatrix getContextRowGlobally(T contextItem) {
+        if (externalRows.containsKey(contextItem) && externalRows.get(contextItem).getRight() != null) {
+            return externalRows.get(contextItem).getRight();
         } else {
             return getContextRowRef(contextItem);
         }
     }
 
-    private DoubleMatrix getRowGlobally(T item, Map<T, DoubleMatrix> externalRows) {
-        if (externalRows.containsKey(item)) {
-            return externalRows.get(item);
+    private DoubleMatrix getRowGlobally(T item) {
+        if (externalRows.containsKey(item) && externalRows.get(item).getLeft() != null) {
+            return externalRows.get(item).getLeft();
         } else {
             return getRowRef(item);
         }
@@ -231,6 +260,15 @@ public class SGNSLocalLearner<T> implements Model<T> {
         for (T item: l.syn0.keySet()) {
             l.syn0.put(item, syn0.get(item).dup());
         }
+        l.externalRows = new HashMap<>(externalRows.size());
+        for (T item: l.externalRows.keySet()) {
+            l.externalRows.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
+                    externalRows.get(item).getKey().dup(), externalRows.get(item).getValue().dup()));
+        }
         return l;
+    }
+
+    public void setExternalRows(Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
+        this.externalRows = externalRows;
     }
 }

@@ -49,9 +49,9 @@ import java.util.Date;
  *
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class Word2vecTask implements Task, Configurable {
+public class LocalSamplingWord2vecTask implements Task, Configurable {
 
-    private static final Logger logger = LoggerFactory.getLogger(Word2vecTask.class);
+    private static final Logger logger = LoggerFactory.getLogger(LocalSamplingWord2vecTask.class);
     private static final long serialVersionUID = -8679039729207387792L;
 
     public StringOption w2vNameOption = new StringOption("word2vecName", 'n', "Identifier of this Word2vec task",
@@ -87,7 +87,7 @@ public class Word2vecTask implements Task, Configurable {
     private IteratorEntrance entrance;
     private Stream toIndexer;
     private IndexerProcessor indexerProcessor;
-    private Stream toSampler2;
+    private Stream toSamplerAndLearner;
     private Stream toLearner;
     private SGNSItemGenerator samplerProcessor;
     private Stream toBuffer;
@@ -138,8 +138,8 @@ public class Word2vecTask implements Task, Configurable {
         builder.addProcessor(indexerProcessor, indexParallelism.getValue());
         // The same word is sent to the same indexer
         builder.connectInputKeyStream(toIndexer, indexerProcessor);
-        toSampler2 = builder.createStream(indexerProcessor);
-        indexerProcessor.setOutputStream(toSampler2);
+        toSamplerAndLearner = builder.createStream(indexerProcessor);
+        indexerProcessor.setOutputStream(toSamplerAndLearner);
 
         // Sample and distribute word pairs
         samplerProcessor = new SGNSItemGenerator((NegativeSampler) itemSamplerOption.getValue(),
@@ -149,7 +149,7 @@ public class Word2vecTask implements Task, Configurable {
         // Each word sampler receives from a single sentence buffer
         builder.connectInputShuffleStream(toSampler1, samplerProcessor);
         // All words samplers receive all the vocabulary
-        builder.connectInputAllStream(toSampler2, samplerProcessor);
+        builder.connectInputAllStream(toSamplerAndLearner, samplerProcessor);
         toLearner = builder.createStream(samplerProcessor);
         toAllLearner = builder.createStream(samplerProcessor);
         samplerToModel = builder.createStream(samplerProcessor);
@@ -164,6 +164,7 @@ public class Word2vecTask implements Task, Configurable {
         builder.addProcessor(learner, learnerParallelism.getValue());
         builder.connectInputKeyStream(toLearner, learner);
         builder.connectInputAllStream(toAllLearner, learner);
+        builder.connectInputKeyStream(toSamplerAndLearner, learner);
         learnerToModel = builder.createStream(learner);
         learner.setModelStream(learnerToModel);
         // Learning parallelism

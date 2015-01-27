@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.samplers;
+package com.yahoo.labs.samoa.features.wordembedding.learners.LocalSamplingSGNS;
 
 /*
  * #%L
@@ -21,27 +21,27 @@ package com.yahoo.labs.samoa.features.wordembedding.samplers;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
+import org.jblas.DoubleMatrix;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class ItemInDataEvent<T> implements ContentEvent {
+public class RowResponse<T> implements ContentEvent {
 
-    private static final long serialVersionUID = 278023268642657276L;
+    private static final long serialVersionUID = -6269812669182472509L;
     private T item;
-    private long dataID;
-    private int position;
+    private DoubleMatrix row;
+    private DoubleMatrix contextRow;
     private String key;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public ItemInDataEvent() {
+    public RowResponse() {
     }
 
-    public ItemInDataEvent(T item, long dataID, int position, boolean isLastEvent, String key) {
+    public RowResponse(T item, DoubleMatrix row, DoubleMatrix contextRow, String key) {
         this.item = item;
-        this.dataID = dataID;
-        this.position = position;
-        this.isLastEvent = isLastEvent;
+        this.row = row;
+        this.contextRow = contextRow;
         this.key = key;
     }
 
@@ -65,11 +65,11 @@ public class ItemInDataEvent<T> implements ContentEvent {
         return item;
     }
 
-    public long getDataID() {
-        return dataID;
+    public DoubleMatrix getRow() {
+        return row;
     }
 
-    public int getPosition() {
-        return position;
+    public DoubleMatrix getContextRow() {
+        return contextRow;
     }
 }

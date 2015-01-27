@@ -45,19 +45,15 @@ public class SGNSDataGenerator<T> extends SamplerProcessor<T> {
     }
 
     /**
-     * Send the training samples from a sentence
+     * Send the training samples from data, which is split in a data ID message and several item messages.
      * @param data
      */
     protected void generateTraining(List<T> data) {
         long dataID = UUID.randomUUID().toString().hashCode();
+        learnerStream.put(new DataIDEvent(dataID, data.size(),false, Long.toString(dataID)));
         for (int pos = 0; pos < data.size(); pos++) {
             T item = data.get(pos);
-            // Generate a random window for each item
-            List<T> negItems = ((NegativeSampler<T>) sampler).negItems();
-            for (T negItem: negItems) {
-                learnerStream.put(new ItemInDataEvent(negItem, dataID, -1, data.size(), false, negItem.toString()));
-            }
-            learnerStream.put(new ItemInDataEvent(item, dataID, pos, data.size(),false, item.toString()));
+            learnerStream.put(new ItemInDataEvent(item, dataID, pos, false, item.toString()));
         }
     }
 

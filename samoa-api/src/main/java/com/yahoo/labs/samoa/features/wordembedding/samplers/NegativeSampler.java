@@ -25,6 +25,8 @@ import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.features.counters.Counter;
 import com.yahoo.labs.samoa.features.counters.StreamSummary;
 import org.jblas.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -38,7 +40,9 @@ import java.util.Map;
 //FIXME subclass UnderSampler
 public class NegativeSampler<T> implements Sampler<T> {
 
+    private static final Logger logger = LoggerFactory.getLogger(NegativeSampler.class);
     private static final long serialVersionUID = 7708675565227109637L;
+
     private double subsamplThr = 0.0;
     private Counter<T> vocab;
     private int itemsPerUpdate = 100000;
@@ -130,7 +134,8 @@ public class NegativeSampler<T> implements Sampler<T> {
         return sampledData;
     }
 
-    // FIXME need a more fine and intelligent update, also to be asynchronous!
+    // FIXME need a more fine and intelligent update (any library for computing distribution like this?)
+    // FIXME asynchronous with FutureTask
     @Override
     public void update() {
         table = new int[tableSize]; //table (= list of words) of noise distribution for negative sampling
@@ -141,6 +146,7 @@ public class NegativeSampler<T> implements Sampler<T> {
         while (vocabIter.hasNext()) {
             normFactor += Math.pow(vocabIter.next().getValue(), power);
         }
+        //logger.info("normfactor "+normFactor);
         //logger.info("SGNSSampler: constructing a table with noise distribution from {} words", vocabSize);
         index2item = new Object[vocabSize];
         //go through the whole table and fill it up with the word indexes proportional to a word's count**power
@@ -225,6 +231,12 @@ public class NegativeSampler<T> implements Sampler<T> {
     @Override
     public Sampler<T> copy() {
         NegativeSampler<T> s = new NegativeSampler<T>(negative, power, tableSize, subsamplThr, capacity, itemsPerUpdate);
+        s.itemsPerUpdateOption = (IntOption) itemsPerUpdateOption.copy();
+        s.subsamplThrOption = (FloatOption) subsamplThrOption.copy();
+        s.powerOption = (FloatOption) powerOption.copy();
+        s.tableSizeOption = (IntOption) tableSizeOption.copy();
+        s.negativeOption = (IntOption) negativeOption.copy();
+        s.capacityOption = (IntOption) capacityOption.copy();
         s.setSeed(seed);
         s.itemUpdates = itemUpdates;
         s.index2item = index2item.clone();

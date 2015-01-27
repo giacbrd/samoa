@@ -26,11 +26,11 @@ import com.yahoo.labs.samoa.features.wordembedding.learners.SGNSLocalLearner;
 import com.yahoo.labs.samoa.features.wordembedding.samplers.ItemEvent;
 import com.yahoo.labs.samoa.features.wordembedding.models.ModelUpdateEvent;
 import com.yahoo.labs.samoa.topology.Stream;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.jblas.DoubleMatrix;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.util.*;
 
 /**
@@ -39,31 +39,6 @@ import java.util.*;
 public class LearnerProcessor<T> implements Processor {
 
     private static final long serialVersionUID = -1333212366354785743L;
-
-    class LocalData<T> implements Serializable {
-        private static final long serialVersionUID = -5572720849350089181L;
-        final T item;
-        final T contextItem;
-        final List<T> negItems;
-        final Map<T, DoubleMatrix> externalData;
-        int dataCount = 0;
-        final int totalData;
-        LocalData(T item , T contextItem, List<T> negItems, Map<T, DoubleMatrix> externalData, int totalData) {
-            this.item = item;
-            this.contextItem = contextItem;
-            this.negItems = negItems;
-            this.externalData = externalData;
-            this.totalData = totalData;
-        }
-        LocalData<T> copy() {
-            LocalData<T> l = new LocalData<T>(item, contextItem, negItems, externalData, totalData);
-            for (T extItem: externalData.keySet()) {
-                l.externalData.put(extItem, externalData.get(extItem).dup());
-            }
-            l.dataCount = dataCount;
-            return l;
-        }
-    }
 
     private static final Logger logger = LoggerFactory.getLogger(LearnerProcessor.class);
 
@@ -101,7 +76,7 @@ public class LearnerProcessor<T> implements Processor {
             T contextItem = (T) itemPair.getContextItem();
             List<T> negItems = itemPair.getNegItems();
             LocalData<T> localData = new LocalData<T>(item, contextItem, negItems,
-                    new HashMap<T, DoubleMatrix>(negItems.size() + 1), negItems.size() + 1);
+                    new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>(negItems.size() + 1), negItems.size() + 1);
             String localKey = uniqueKey();
             //FIXME ugly code, but "recursion" must be put at the end because non asynchronous put() of samoa-local
             if (learner.contains(contextItem)) {
@@ -142,7 +117,8 @@ public class LearnerProcessor<T> implements Processor {
             DoubleMatrix row = response.getResponseRow();
 //            logger.info(id+":get "+sourceItem+" "+newItem+" "+tempData.containsKey(sourceKey));
             LocalData<T> localData = tempData.get(sourceKey);
-            localData.externalData.put(newItem, row);
+            // External rows are only, and all, context rows (actual context and negatives)
+            localData.externalRows.put(newItem, new MutablePair<DoubleMatrix, DoubleMatrix>(null, row));
             localData.dataCount++;
             if (localData.dataCount >= localData.totalData) {
 //                logger.info(id+":learn2 "+sourceItem+"-"+localData.contextItem+" "+localData.dataCount+" "+localData.totalData);
@@ -170,18 +146,19 @@ public class LearnerProcessor<T> implements Processor {
     private void learn(T item, LocalData<T> localData) {
         T contextItem = (T) localData.contextItem;
         List<T> negItems = localData.negItems;
-        Map<T, DoubleMatrix> gradientUpdates = learner.train(item, contextItem, negItems, localData.externalData);
+        learner.setExternalRows(localData.externalRows);
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradientUpdates = learner.train(item, contextItem, negItems);
         DoubleMatrix outRow = learner.getRow(item);
         iterations++;
         if (iterations % 1000000 == 0) {
             logger.info(String.format("LearnerProcessor-%d: at %d iterations", id, iterations));
         }
         if (!learner.contains(contextItem)) {
-            synchroStream.put(new RowUpdate(contextItem, gradientUpdates.get(contextItem)));
+            synchroStream.put(new RowUpdate(contextItem, gradientUpdates.get(contextItem).getRight()));
         }
         for (T negItem: negItems) {
             if (!learner.contains(negItem)) {
-                synchroStream.put(new RowUpdate(negItem, gradientUpdates.get(negItem)));
+                synchroStream.put(new RowUpdate(negItem, gradientUpdates.get(negItem).getRight()));
             }
         }
         modelStream.put(new ModelUpdateEvent(item, outRow, false));
@@ -215,6 +192,7 @@ public class LearnerProcessor<T> implements Processor {
         l.modelStream = p.modelStream;
         l.synchroStream = p.synchroStream;
         l.iterations = p.iterations;
+        l.modelAckSent = p.modelAckSent;
         l.tempData = new HashMap<String, LocalData<T>>();
         for (Object key: p.tempData.keySet()) {
             l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());

@@ -73,11 +73,9 @@ public abstract class SamplerProcessor2<T> implements Processor {
             samplers = new ArrayList<Sampler>(learnerParallelism);
             for (int i = 0; i < learnerParallelism; i++) {
                 samplers.add(sampler.copy());
+                samplers.get(i).initConfiguration();
+                samplers.get(i).setSeed(seed);
             }
-        }
-        for (int i = 0; i < learnerParallelism; i++) {
-            samplers.get(i).initConfiguration();
-            samplers.get(i).setSeed(seed);
         }
     }
 

@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.samplers;
+package com.yahoo.labs.samoa.features.wordembedding.learners.LocalSamplingSGNS;
 
 /*
  * #%L
@@ -21,28 +21,28 @@ package com.yahoo.labs.samoa.features.wordembedding.samplers;
  */
 
 import com.yahoo.labs.samoa.core.ContentEvent;
+import org.jblas.DoubleMatrix;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class ItemInDataEvent<T> implements ContentEvent {
+public class RowUpdate<T> implements ContentEvent {
 
-    private static final long serialVersionUID = 278023268642657276L;
+    private static final long serialVersionUID = 65885385385095409L;
     private T item;
-    private long dataID;
-    private int position;
+    private DoubleMatrix gradient;
+    private DoubleMatrix contextGradient;
     private String key;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public ItemInDataEvent() {
+    public RowUpdate() {
     }
 
-    public ItemInDataEvent(T item, long dataID, int position, boolean isLastEvent, String key) {
+    public RowUpdate(T item, DoubleMatrix gradient, DoubleMatrix contextGradient) {
         this.item = item;
-        this.dataID = dataID;
-        this.position = position;
-        this.isLastEvent = isLastEvent;
-        this.key = key;
+        this.gradient = gradient;
+        this.contextGradient = contextGradient;
+        this.key = item.toString();
     }
 
     @Override
@@ -65,11 +65,11 @@ public class ItemInDataEvent<T> implements ContentEvent {
         return item;
     }
 
-    public long getDataID() {
-        return dataID;
+    public DoubleMatrix getGradient() {
+        return gradient;
     }
 
-    public int getPosition() {
-        return position;
+    public DoubleMatrix getContextGradient() {
+        return contextGradient;
     }
 }

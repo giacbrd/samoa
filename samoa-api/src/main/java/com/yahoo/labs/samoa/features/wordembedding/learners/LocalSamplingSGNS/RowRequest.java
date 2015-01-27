@@ -1,4 +1,4 @@
-package com.yahoo.labs.samoa.features.wordembedding.samplers;
+package com.yahoo.labs.samoa.features.wordembedding.learners.LocalSamplingSGNS;
 
 /*
  * #%L
@@ -25,24 +25,21 @@ import com.yahoo.labs.samoa.core.ContentEvent;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class ItemInDataEvent<T> implements ContentEvent {
+public class RowRequest<T> implements ContentEvent {
 
-    private static final long serialVersionUID = 278023268642657276L;
-    private T item;
-    private long dataID;
-    private int position;
+    private static final long serialVersionUID = 8243807411847268772L;
+    private Long sourceDataID;
+    private T requestedItem;
     private String key;
-    private boolean isLastEvent;
+    private boolean isLastEvent = false;
 
-    public ItemInDataEvent() {
+    public RowRequest() {
     }
 
-    public ItemInDataEvent(T item, long dataID, int position, boolean isLastEvent, String key) {
-        this.item = item;
-        this.dataID = dataID;
-        this.position = position;
-        this.isLastEvent = isLastEvent;
-        this.key = key;
+    public RowRequest(Long sourceDataID, T requestedItem) {
+        this.sourceDataID = sourceDataID;
+        this.requestedItem = requestedItem;
+        this.key = requestedItem.toString();
     }
 
     @Override
@@ -61,15 +58,12 @@ public class ItemInDataEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public T getItem() {
-        return item;
+    public T getRequestedItem() {
+        return requestedItem;
     }
 
-    public long getDataID() {
-        return dataID;
+    public Long getSourceDataID() {
+        return sourceDataID;
     }
 
-    public int getPosition() {
-        return position;
-    }
 }
