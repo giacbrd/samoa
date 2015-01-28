@@ -30,6 +30,7 @@ public class RowResponse<T> implements ContentEvent {
 
     private static final long serialVersionUID = -6269812669182472509L;
     private T item;
+    private int position;
     private DoubleMatrix row;
     private DoubleMatrix contextRow;
     private String key;
@@ -38,8 +39,9 @@ public class RowResponse<T> implements ContentEvent {
     public RowResponse() {
     }
 
-    public RowResponse(T item, DoubleMatrix row, DoubleMatrix contextRow, String key) {
+    public RowResponse(T item, int position, DoubleMatrix row, DoubleMatrix contextRow, String key) {
         this.item = item;
+        this.position = position;
         this.row = row;
         this.contextRow = contextRow;
         this.key = key;
@@ -71,5 +73,9 @@ public class RowResponse<T> implements ContentEvent {
 
     public DoubleMatrix getContextRow() {
         return contextRow;
+    }
+
+    public int getPosition() {
+        return position;
     }
 }

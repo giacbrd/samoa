@@ -38,11 +38,11 @@ public class RowUpdate<T> implements ContentEvent {
     public RowUpdate() {
     }
 
-    public RowUpdate(T item, DoubleMatrix gradient, DoubleMatrix contextGradient) {
+    public RowUpdate(T item, DoubleMatrix gradient, DoubleMatrix contextGradient, String key) {
         this.item = item;
         this.gradient = gradient;
         this.contextGradient = contextGradient;
-        this.key = item.toString();
+        this.key = key;
     }
 
     @Override

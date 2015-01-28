@@ -50,6 +50,7 @@ public class SGNSLocalLearner<T> implements Model<T> {
     private double alpha = 0.025;
     private double minAlpha = 0.0001;
     private Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows;
+    Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradients;
 
     public IntOption layerSizeOption = new IntOption("layerSize", 'l', "The number of columns of the model matrices.",
             layerSize);
@@ -86,15 +87,11 @@ public class SGNSLocalLearner<T> implements Model<T> {
         this.seed = seed;
         syn0 = new HashMap<T, DoubleMatrix>(1000000);
         syn1neg = new HashMap<T, DoubleMatrix>(1000000);
-        externalRows = new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>();
+        setExternalRows(new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>());
     }
 
 
     public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> train(T item, T contextItem, List<T> negItems) {
-        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradients = new HashMap<>(externalRows.size());
-        for (T key: externalRows.keySet()) {
-            gradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>());
-        }
         DoubleMatrix l1 = getRowGlobally(item);
         //logger.info("_ "+item +" "+getRowGlobally(item));
         DoubleMatrix l2b = new DoubleMatrix(negItems.size()+1, layerSize);
@@ -245,6 +242,18 @@ public class SGNSLocalLearner<T> implements Model<T> {
         this.seed = seed;
     }
 
+    public void setExternalRows(Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
+        this.externalRows = externalRows;
+        gradients = new HashMap<>(externalRows.size());
+        for (T key: externalRows.keySet()) {
+            gradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>());
+        }
+    }
+
+    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getGradients() {
+        return gradients;
+    }
+
     @Override
     public SGNSLocalLearner<T> copy() {
         SGNSLocalLearner<T> l = new SGNSLocalLearner<T>(layerSize, alpha, minAlpha);
@@ -265,10 +274,12 @@ public class SGNSLocalLearner<T> implements Model<T> {
             l.externalRows.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
                     externalRows.get(item).getKey().dup(), externalRows.get(item).getValue().dup()));
         }
+        l.gradients = new HashMap<>(gradients.size());
+        for (T item: l.gradients.keySet()) {
+            l.gradients.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
+                    gradients.get(item).getKey().dup(), gradients.get(item).getValue().dup()));
+        }
         return l;
     }
 
-    public void setExternalRows(Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
-        this.externalRows = externalRows;
-    }
 }

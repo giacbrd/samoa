@@ -39,31 +39,15 @@ class LocalData<T> implements Serializable {
 
     T[] data;
     Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows;
-    //FIXME can remove missingData
-    Set<Integer> missingData;
     int dataCount = 0;
 
     public LocalData(T[] data) {
         this.data = data;
         externalRows = new HashMap<>(data.length);
-        missingData = new HashSet<>(data.length);
     }
 
-    public boolean setItem(int index, T item, boolean isExternal) {
+    public boolean setLocalItem(int index, T item) {
         data[index] = item;
-        if (isExternal) {
-            missingData.add(index);
-        } else {
-            dataCount++;
-        }
-        if (dataCount >= data.length) {
-            return true;
-        }
-        return false;
-    }
-
-    public boolean addExternalRow(T item, DoubleMatrix row, DoubleMatrix contextRow) {
-        externalRows.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(row, contextRow));
         dataCount++;
         if (dataCount >= data.length) {
             return true;
@@ -71,10 +55,17 @@ class LocalData<T> implements Serializable {
         return false;
     }
 
+    public boolean setExternalItem(int index, T item, DoubleMatrix row, DoubleMatrix contextRow) {
+        externalRows.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(row, contextRow));
+        return setLocalItem(index, item);
+    }
+
     LocalData<T> copy() {
         LocalData<T> l = new LocalData<T>(data.clone());
-        for (int index: missingData) {
-            l.missingData.add(index);
+        for (T item: externalRows.keySet()) {
+            l.externalRows.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
+                    externalRows.get(item).getLeft(), externalRows.get(item).getRight()
+            ));
         }
         l.dataCount = dataCount;
         return l;

@@ -115,39 +115,39 @@ public class LearnerProcessor<T> implements Processor {
             ItemInDataEvent<T> newItemEvent = (ItemInDataEvent<T>) event;
             long dataID = newItemEvent.getDataID();
             T item = newItemEvent.getItem();
+            int pos = newItemEvent.getPosition();
 //            logger.info("new item: "+item+" data: "+dataID+", is local: "+tempData.containsKey(dataID));
-            // datID must exist in tempData
             if (tempData.containsKey(dataID)) {
                 LocalData<T> currData = tempData.get(dataID);
-                if (learner.contains(item)) {
-                    if (currData.setItem(newItemEvent.getPosition(), newItemEvent.getItem(), false)) {
-                        learn(currData);
-                        tempData.remove(dataID);
-                    }
-                } else {
-                    currData.setItem(newItemEvent.getPosition(), newItemEvent.getItem(), true);
+                if (currData.setLocalItem(pos, item)) {
+                    learn(currData);
+                    tempData.remove(dataID);
                 }
-//                logger.info("data updated: "+dataID+", missing: "+currData.missingData);
             } else {
-//                logger.info("item not in data: "+dataID+", item: "+item);
-                synchroStream.put(new RowResponse<T>(item, learner.getRow(item), learner.getContextRow(item), Long.toString(dataID)));
+                synchroStream.put(new RowResponse<T>(
+                        item, pos, learner.getRow(item), learner.getContextRow(item), Long.toString(dataID)));
             }
         } else if (event instanceof RowResponse) {
             RowResponse response = (RowResponse) event;
             Long dataID = Long.parseLong(response.getKey());
             T item = (T) response.getItem();
+            int pos = response.getPosition();
             DoubleMatrix row = response.getRow();
             DoubleMatrix contextRow = response.getContextRow();
             LocalData<T> currData = tempData.get(dataID);
-            if (currData.addExternalRow(item, row, contextRow)) {
+            if (currData.setExternalItem(pos, item, row, contextRow)) {
                 learn(currData);
                 tempData.remove(dataID);
             }
         } else if (event instanceof RowUpdate) {
             RowUpdate<T> update = (RowUpdate<T>) event;
             T item = update.getItem();
-            learner.updateRow(item, update.getGradient());
-            learner.updateContextRow(item, update.getContextGradient());
+            if (update.getGradient() != null) {
+                learner.updateRow(item, update.getGradient());
+            }
+            if (update.getContextGradient() != null) {
+                learner.updateContextRow(item, update.getContextGradient());
+            }
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
         //FIXME optimize all this ugly stuff
@@ -161,7 +161,6 @@ public class LearnerProcessor<T> implements Processor {
 
     private void learn(LocalData<T> currData) {
         T[] data = currData.data;
-        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> gradientUpdates = new HashMap<>(data.length);
         learner.setExternalRows(currData.externalRows);
         for (int pos = 0; pos < data.length; pos++) {
             T contextItem = data[pos];
@@ -185,7 +184,7 @@ public class LearnerProcessor<T> implements Processor {
                             negItems.add(negItem);
                         }
                     }
-                    gradientUpdates.putAll(learner.train(item, contextItem, negItems));
+                    learner.train(item, contextItem, negItems);
                     iterations++;
                     if (iterations % 1000000 == 0) {
                         logger.info(String.format("LearnerProcessor-%d: at %d iterations", id, iterations));
@@ -193,6 +192,7 @@ public class LearnerProcessor<T> implements Processor {
                 }
             }
         }
+        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> gradientUpdates = learner.getGradients();
 //        for (int pos = 0; pos < data.length; pos++) {
 //            logger.info(currData.data+" "+currData.dataCount+" "+currData.missingData);
 //        }
@@ -203,7 +203,11 @@ public class LearnerProcessor<T> implements Processor {
 //                for (T key: gradientUpdates.keySet()) {
 //                    logger.info(key+" "+ gradientUpdates.get(key).getKey()+" "+gradientUpdates.get(key).getValue());
 //                }
-                synchroStream.put(new RowUpdate(item, gradientUpdates.get(item).getKey(), gradientUpdates.get(item).getValue()));
+                DoubleMatrix gradient = gradientUpdates.get(item).getKey();
+                DoubleMatrix contextGradient = gradientUpdates.get(item).getValue();
+                if (gradient != null || contextGradient != null) {
+                    synchroStream.put(new RowUpdate(item, gradient, contextGradient, item.toString()));
+                }
             }
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
