@@ -56,24 +56,24 @@ public class IndexerProcessor<T> implements Processor {
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
-            logger.info("IndexerProcessor-{}: collected {} item types from a corpus of {} items and {} data samples",
-                    id, indexer.size(), indexer.itemCount(), indexer.dataCount());
-            outputStream.put(new IndexUpdateEvent(null, null, true));
+            logger.info("IndexerProcessor-{}: collected {} item types from a corpus of {} items",
+                    id, indexer.size(), indexer.itemCount());
+            outputStream.put(new IndexUpdateEvent(null, 0, null, true));
             return true;
         }
         OneContentEvent content = (OneContentEvent) event;
-        List<T> data = (List<T>) content.getContent();
-        Map<T, Map.Entry<Long, Long>> update = indexer.add(data);
+        T item = (T) content.getContent();
+        Long newItemCount = indexer.add(item);
         Map<T, Long> removeVocab = indexer.getRemoved();
-        long dataCount = indexer.dataCount();
+        long itemCount = indexer.itemCount();
         //FIXME this works because data increments by 1 at each add
-        if (dataCount % 1000 == 0 && dataCount > 0) {
-            logger.info("IndexerProcessor-{}: after {} data samples, processed {} items and {} item types",
-                    id, indexer.dataCount(), indexer.itemCount(), indexer.size());
+        if (itemCount % 1000000 == 0 && itemCount > 0) {
+            logger.info("IndexerProcessor-{}: processed {} items and {} item types",
+                    id, itemCount, indexer.size());
         }
-        if (!update.isEmpty() || !removeVocab.isEmpty()) {
+        if (newItemCount > 0 || !removeVocab.isEmpty()) {
             // This "double" construction of the Set is necessary for making Kryo works
-            outputStream.put(new IndexUpdateEvent(update, removeVocab, false));
+            outputStream.put(new IndexUpdateEvent(item, newItemCount, removeVocab, false));
         }
         return true;
     }

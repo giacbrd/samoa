@@ -31,7 +31,8 @@ import java.util.Set;
 public class IndexUpdateEvent<T> implements ContentEvent {
 
     private static final long serialVersionUID = 7608806911635852512L;
-    private Map<T, Map.Entry<Long, Long>> itemVocab;
+    private T item;
+    private long count;
     private Map<T, Long> removedItems;
     private String key;
     private boolean isLastEvent;
@@ -39,8 +40,9 @@ public class IndexUpdateEvent<T> implements ContentEvent {
     public IndexUpdateEvent() {
     }
 
-    public IndexUpdateEvent(Map<T, Map.Entry<Long, Long>> itemVocab, Map<T, Long> removedItems, boolean isLastEvent) {
-        this.itemVocab = itemVocab;
+    public IndexUpdateEvent(T item, long count, Map<T, Long> removedItems, boolean isLastEvent) {
+        this.item = item;
+        this.count = count;
         this.removedItems = removedItems;
         this.isLastEvent = isLastEvent;
     }
@@ -60,11 +62,16 @@ public class IndexUpdateEvent<T> implements ContentEvent {
         return isLastEvent;
     }
 
-    public Map<T, Map.Entry<Long, Long>> getItemVocab() {
-        return itemVocab;
-    }
+
     public Map<T, Long> getRemovedItems() {
         return removedItems;
     }
 
+    public T getItem() {
+        return item;
+    }
+
+    public long getCount() {
+        return count;
+    }
 }

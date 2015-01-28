@@ -33,12 +33,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public class CacheIndexer<T> implements Indexer {
+public class CacheIndexer<T> implements Indexer<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(CacheIndexer.class);
     private static final long serialVersionUID = 6644093609991285167L;
 
-    private long totalData;
     private long cacheSize = Integer.MAX_VALUE;
     private long itemExpiry = 24*60;
     //FIXME is this transient safe?
@@ -83,7 +82,6 @@ public class CacheIndexer<T> implements Indexer {
         this.minCount = minCount;
         vocab = initCache(cacheSize, itemExpiry);
         removeVocab = new HashMap<>();
-        totalData = 0;
         totalItems = 0;
     }
 
@@ -117,32 +115,22 @@ public class CacheIndexer<T> implements Indexer {
     }
 
     @Override
-    public Map<T, Map.Entry<Long, Long>> add(List data) {
-        totalItems += data.size();
-        totalData++;
-        Map<T, Long> currVocab = dataCount(data);
-        Map<T, Map.Entry<Long, Long>> outVocab = new HashMap<T, Map.Entry<Long, Long>>(currVocab.size());
-        Iterator<Map.Entry<T, Long>> vocabIter = currVocab.entrySet().iterator();
-        while (vocabIter.hasNext()) {
-            Map.Entry<T, Long> vocabItem = vocabIter.next();
-            T item = vocabItem.getKey();
-            long incrCount = vocabItem.getValue();
-            long prevCount = 0;
-            try {
-                prevCount = vocab.get(item);
-            } catch (ExecutionException e) {
-                logger.error("Cache access error for item: " + item);
-                e.printStackTrace();
-            }
-            long newCount = prevCount + incrCount;
-            vocab.put(item, newCount);
-            if (newCount >= minCount) {
-                outVocab.put(item, new ImmutablePair<Long, Long>(prevCount, incrCount));
-            }
+    public long add(T item) {
+        totalItems++;
+        long count = 0;
+        try {
+            count = vocab.get(item) + 1;
+            vocab.put(item, count);
+        } catch (ExecutionException e) {
+            logger.error("Cache access error for item: " + item);
+            e.printStackTrace();
         }
-        // Do not remove just occurred words
-        removeVocab.keySet().removeAll(outVocab.keySet());
-        return outVocab;
+        removeVocab.keySet().remove(item);
+        if (count >= minCount) {
+            return count;
+        } else {
+            return (long) 0;
+        }
     }
 
     private Map<T, Long> dataCount(List<T> data) {
@@ -174,11 +162,6 @@ public class CacheIndexer<T> implements Indexer {
         return totalItems;
     }
 
-    @Override
-    public long dataCount() {
-        return totalData;
-    }
-
     /**
      * Almost exact clone, some cache internals are not copied.
      * @return
@@ -189,7 +172,6 @@ public class CacheIndexer<T> implements Indexer {
         c.cacheSizeOption = (IntOption) cacheSizeOption.copy();
         c.itemExpiryOption = (IntOption) itemExpiryOption.copy();
         c.minCountOption = (IntOption) minCountOption.copy();
-        c.totalData = totalData;
         c.totalItems = totalItems;
         c.removeVocab = new HashMap<>(removeVocab);
         c.vocab = initCache(cacheSize, itemExpiry);

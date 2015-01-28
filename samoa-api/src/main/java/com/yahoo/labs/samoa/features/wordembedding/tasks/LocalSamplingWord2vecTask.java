@@ -98,7 +98,7 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
     private Stream learnerToModel;
     private Model model;
     private Stream samplerToModel;
-    private Stream toBufferAll;
+    private Stream toAllBuffer;
     private Stream learnerToLearner;
     private Stream toAllLearner;
 
@@ -112,16 +112,16 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
         toDistributor = builder.createStream(entrance);
 
         // Routing of sentences to indexer and to buffer
-        wordsRouter = new DataDistributor(indexParallelism.getValue());
+        wordsRouter = new DataDistributor();
         builder.addProcessor(wordsRouter);
         builder.connectInputAllStream(toDistributor, wordsRouter);
         toIndexer = builder.createStream(wordsRouter);
         toBuffer = builder.createStream(wordsRouter);
         // This is for sending to all buffers the last event, so to flush all the buffers
-        toBufferAll = builder.createStream(wordsRouter);
+        toAllBuffer = builder.createStream(wordsRouter);
         wordsRouter.setItemStream(toIndexer);
         wordsRouter.setDataStream(toBuffer);
-        wordsRouter.setDataAllStream(toBufferAll);
+        wordsRouter.setDataAllStream(toAllBuffer);
 
         // Buffer sentences before sending to distribution
         //FIXME need a specific parallelism parameter
@@ -129,7 +129,7 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
         // Set the number of buffers equal to the number of word samplers
         builder.addProcessor(buffer, samplerParallelism.getValue());
         builder.connectInputShuffleStream(toBuffer, buffer);
-        builder.connectInputAllStream(toBufferAll, buffer);
+        builder.connectInputAllStream(toAllBuffer, buffer);
         toSampler1 = builder.createStream(buffer);
         buffer.setOutputStream(toSampler1);
 

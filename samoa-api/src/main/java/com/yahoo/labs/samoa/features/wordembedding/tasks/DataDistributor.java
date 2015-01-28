@@ -43,12 +43,7 @@ public class DataDistributor<T> implements Processor {
     private int id;
     private Stream itemStream;
     private Stream dataStream;
-    private int parallelism;
     private Stream dataAllStream;
-
-    public DataDistributor(int parallelism) {
-        this.parallelism = parallelism;
-    }
 
     @Override
     public void onCreate(int id) {
@@ -59,34 +54,18 @@ public class DataDistributor<T> implements Processor {
     public boolean process(ContentEvent event) {
 //        logger.info("DataDistr "+event.isLastEvent() +" "+ ((OneContentEvent<List<T>>) event).getContent());
         if (event.isLastEvent()) {
-            for (int i = 0; i < parallelism; i++) {
-                itemStream.put(new OneContentEvent<List<T>>(null, true, Integer.toString(i)));
-            }
+            //TODO only one indexer receives the last message
+            itemStream.put(new OneContentEvent<T>(null, true));
             dataAllStream.put(new OneContentEvent<List<T>>(null, true));
             return true;
         }
         OneContentEvent<List<T>> data = (OneContentEvent<List<T>>) event;
         List<T> items = data.getContent();
-        List<List<T>> outItems = initOutItems();
-        for(T item: items) {
-            outItems.get(Math.abs(item.hashCode()) % parallelism).add(item);
-        }
-        //FIXME is distribution to all indexers guaranteed?! NO
-        for (int i = 0; i < outItems.size(); i++) {
-            if (!outItems.get(i).isEmpty()) {
-                itemStream.put(new OneContentEvent<List<T>>(outItems.get(i), false, Integer.toString(i)));
-            }
+        for (T item: items) {
+            itemStream.put(new OneContentEvent<T>(item, false, item.toString()));
         }
         dataStream.put(new OneContentEvent<List<T>>(items, false));
         return true;
-    }
-
-    private ArrayList<List<T>> initOutItems() {
-        ArrayList<List<T>> outItems = new ArrayList<List<T>>(this.parallelism);
-        for (int i = 0; i < parallelism; i++) {
-            outItems.add(new ArrayList<T>());
-        }
-        return outItems;
     }
 
     public void setDataStream(Stream dataStream) {
@@ -104,7 +83,7 @@ public class DataDistributor<T> implements Processor {
     @Override
     public Processor newProcessor(Processor processor) {
         DataDistributor p = (DataDistributor) processor;
-        DataDistributor m = new DataDistributor(p.parallelism);
+        DataDistributor m = new DataDistributor();
         m.itemStream = p.itemStream;
         m.dataStream = p.dataStream;
         m.dataAllStream = p.dataAllStream;

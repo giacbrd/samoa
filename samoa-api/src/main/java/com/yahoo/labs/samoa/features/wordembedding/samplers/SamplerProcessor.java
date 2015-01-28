@@ -75,23 +75,22 @@ public abstract class SamplerProcessor<T> implements Processor {
 //                    "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size());
 //        }
         if (event instanceof IndexUpdateEvent) {
+            //TODO only one last IndexUpdateEvent will arrive
             if (event.isLastEvent()) {
                 logger.info(this.getClass().getSimpleName()+"-{}: collected in vocabulary {} item types from a " +
                                 "corpus of {} items.", id, sampler.size(), sampler.getItemCount());
                 return true;
             }
-            IndexUpdateEvent update = (IndexUpdateEvent) event;
+            IndexUpdateEvent<T> update = (IndexUpdateEvent<T>) event;
             // Update local vocabulary
-            long itemCount = 0;
-            Map<T, Map.Entry<Long, Long>> vocabUpdate = update.getItemVocab();
-            for(Map.Entry<T, Map.Entry<Long, Long>> v: vocabUpdate.entrySet()) {
-                itemCount += v.getValue().getValue();
-                sampler.put(v.getKey(), v.getValue().getKey() + v.getValue().getValue());
-            }
+            T item = update.getItem();
+            long count = update.getCount();
+            sampler.put(item, count);
+            long itemCount = 1;
             Map<T, Long> removeUpdate = update.getRemovedItems();
-            for(T item: removeUpdate.keySet()) {
-                itemCount -= removeUpdate.get(item);
-                sampler.remove(item);
+            for(T removedItem: removeUpdate.keySet()) {
+                itemCount -= removeUpdate.get(removedItem);
+                sampler.remove(removedItem);
             }
             sampler.setItemCount(sampler.getItemCount() + itemCount);
 //            if (sampler.getItemCount() % 10 == 0) {

@@ -40,13 +40,12 @@ public interface Indexer<T> extends Configurable, Serializable {
     boolean initConfiguration();
 
     /**
-     * Add items to the index and return their counts.
-     * The returned items are a subset of the input data,
-     * they are filtered according to some Indexer rule (e.g., no items less frequent than...)
-     * @param data A list of items to index/count
-     * @return For each added item, its old and new count after the add.
+     * Add an item to the index and return its count.
+     * The returned item can be filtered according to some Indexer rule (e.g., no items less frequent than...)
+     * @param item
+     * @return The new item count.
      */
-    Map<T, Map.Entry<Long, Long>> add(List<T> data);
+    long add(T item);
 
     /**
      * The items eventually removed after any operation on the index.
@@ -61,11 +60,11 @@ public interface Indexer<T> extends Configurable, Serializable {
      */
     long size();
 
-    /**
-     * Number of data elements (sentences, documents,...) processed.
-     * @return
-     */
-    long dataCount();
+//    /**
+//     * Number of data elements (sentences, documents,...) processed.
+//     * @return
+//     */
+//    long dataCount();
 
     /**
      * Sum of all item counts (occurrences count of items in processed data).
