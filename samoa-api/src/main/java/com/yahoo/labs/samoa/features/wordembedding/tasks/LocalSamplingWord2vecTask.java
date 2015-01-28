@@ -28,11 +28,12 @@ import com.github.javacliparser.ClassOption;
 import com.yahoo.labs.samoa.features.wordembedding.indexers.CacheIndexer;
 import com.yahoo.labs.samoa.features.wordembedding.indexers.Indexer;
 import com.yahoo.labs.samoa.features.wordembedding.indexers.IndexerProcessor;
-import com.yahoo.labs.samoa.features.wordembedding.learners.NaiveSGNS.LearnerProcessor;
+import com.yahoo.labs.samoa.features.wordembedding.learners.LocalSamplingSGNS.LearnerProcessor;
 import com.yahoo.labs.samoa.features.wordembedding.learners.SGNSLocalLearner;
 import com.yahoo.labs.samoa.features.wordembedding.models.Model;
 import com.yahoo.labs.samoa.features.wordembedding.samplers.NegativeSampler;
-import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSItemGenerator;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.SGNSDataGenerator;
+import com.yahoo.labs.samoa.features.wordembedding.samplers.UnderSampler;
 import com.yahoo.labs.samoa.tasks.Task;
 import com.yahoo.labs.samoa.topology.ComponentFactory;
 import com.yahoo.labs.samoa.topology.Stream;
@@ -76,7 +77,9 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
 
     public ClassOption indexerOption = new ClassOption("indexer", 'i', "Index generator class.",
             CacheIndexer.class, "CacheIndexer");
-    public ClassOption itemSamplerOption = new ClassOption("sampler", 's', "Items sampler class.", NegativeSampler.class,
+    public ClassOption globalSamplerOption = new ClassOption("globalSampler", 'a', "Items sampler on aggregate statistics.", UnderSampler.class,
+            "UnderSampler");
+    public ClassOption learnerSamplerOption = new ClassOption("localSampler", 's', "Sampler for the local learners.", NegativeSampler.class,
             "NegativeSampler");
     public ClassOption learnerOption = new ClassOption("learner", 'l', "LocalLearner class.", SGNSLocalLearner.class,
             "SGNSLocalLearner");
@@ -87,9 +90,8 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
     private IteratorEntrance entrance;
     private Stream toIndexer;
     private IndexerProcessor indexerProcessor;
-    private Stream toSamplerAndLearner;
     private Stream toLearner;
-    private SGNSItemGenerator samplerProcessor;
+    private SGNSDataGenerator samplerProcessor;
     private Stream toBuffer;
     private DataQueue buffer;
     private Stream toSampler1;
@@ -101,6 +103,8 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
     private Stream toAllBuffer;
     private Stream learnerToLearner;
     private Stream toAllLearner;
+    private Stream indexerToSampler;
+    private Stream indexerToLearner;
 
     @Override
     public void init() {
@@ -138,18 +142,19 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
         builder.addProcessor(indexerProcessor, indexParallelism.getValue());
         // The same word is sent to the same indexer
         builder.connectInputKeyStream(toIndexer, indexerProcessor);
-        toSamplerAndLearner = builder.createStream(indexerProcessor);
-        indexerProcessor.setOutputStream(toSamplerAndLearner);
+        indexerToSampler = builder.createStream(indexerProcessor);
+        indexerToLearner = builder.createStream(indexerProcessor);
+        indexerProcessor.setAggregationStream(indexerToSampler);
+        indexerProcessor.setLearnerStream(indexerToLearner);
 
         // Sample and distribute word pairs
-        samplerProcessor = new SGNSItemGenerator((NegativeSampler) itemSamplerOption.getValue(),
-                (short) windowOption.getValue());
+        samplerProcessor = new SGNSDataGenerator((UnderSampler) globalSamplerOption.getValue());
         samplerProcessor.setSeed(seedOption.getValue());
         builder.addProcessor(samplerProcessor, samplerParallelism.getValue());
         // Each word sampler receives from a single sentence buffer
         builder.connectInputShuffleStream(toSampler1, samplerProcessor);
         // All words samplers receive all the vocabulary
-        builder.connectInputAllStream(toSamplerAndLearner, samplerProcessor);
+        builder.connectInputAllStream(indexerToSampler, samplerProcessor);
         toLearner = builder.createStream(samplerProcessor);
         toAllLearner = builder.createStream(samplerProcessor);
         samplerToModel = builder.createStream(samplerProcessor);
@@ -159,12 +164,15 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
 
         // Learning
         LearnerProcessor learner = new LearnerProcessor(
-                (SGNSLocalLearner) learnerOption.getValue(), samplerParallelism.getValue());
+                (short) windowOption.getValue(),
+                (SGNSLocalLearner) learnerOption.getValue(),
+                (NegativeSampler) learnerSamplerOption.getValue(),
+                samplerParallelism.getValue());
         learner.setSeed(seedOption.getValue());
         builder.addProcessor(learner, learnerParallelism.getValue());
         builder.connectInputKeyStream(toLearner, learner);
         builder.connectInputAllStream(toAllLearner, learner);
-        builder.connectInputKeyStream(toSamplerAndLearner, learner);
+        builder.connectInputKeyStream(indexerToLearner, learner);
         learnerToModel = builder.createStream(learner);
         learner.setModelStream(learnerToModel);
         // Learning parallelism

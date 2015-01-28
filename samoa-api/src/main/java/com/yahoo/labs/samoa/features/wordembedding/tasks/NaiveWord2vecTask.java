@@ -135,7 +135,7 @@ public class NaiveWord2vecTask implements Task, Configurable {
         // The same word is sent to the same indexer
         builder.connectInputKeyStream(toIndexer, indexerProcessor);
         toSampler2 = builder.createStream(indexerProcessor);
-        indexerProcessor.setOutputStream(toSampler2);
+        indexerProcessor.setAggregationStream(toSampler2);
 
         // Sample and distribute word pairs
         samplerProcessor = new SGNSItemGenerator((NegativeSampler) itemSamplerOption.getValue(),

@@ -51,11 +51,9 @@ public abstract class SamplerProcessor<T> implements Processor {
     protected Stream learnerStream;
     protected Stream learnerAllStream;
     protected Stream modelStream;
-    protected short window;
 
-    public SamplerProcessor(Sampler sampler, short window) {
+    public SamplerProcessor(Sampler sampler) {
         this.sampler = sampler;
-        this.window = window;
     }
 
     @Override
@@ -77,7 +75,7 @@ public abstract class SamplerProcessor<T> implements Processor {
         if (event instanceof IndexUpdateEvent) {
             //TODO only one last IndexUpdateEvent will arrive
             if (event.isLastEvent()) {
-                logger.info(this.getClass().getSimpleName()+"-{}: collected in vocabulary {} item types from a " +
+                logger.info(this.getClass().getSimpleName()+"-{}: ended with {} item types from a " +
                                 "corpus of {} items.", id, sampler.size(), sampler.getItemCount());
                 return true;
             }

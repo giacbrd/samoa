@@ -34,9 +34,11 @@ public class SGNSItemGenerator<T> extends SamplerProcessor<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(SGNSItemGenerator.class);
     private static final long serialVersionUID = -4509340061994117991L;
+    private short window;
 
     public SGNSItemGenerator(Sampler sampler, short window) {
-        super(sampler, window);
+        super(sampler);
+        this.window = window;
     }
 
     /**

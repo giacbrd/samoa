@@ -39,7 +39,8 @@ public class IndexerProcessor<T> implements Processor {
     private static final long serialVersionUID = -7609177989430575101L;
 
     private int id;
-    private Stream outputStream;
+    private Stream aggregationStream;
+    private Stream learnerStream;
     private Indexer<T> indexer;
 
     public IndexerProcessor(Indexer indexer) {
@@ -53,12 +54,13 @@ public class IndexerProcessor<T> implements Processor {
     }
 
     //FIXME when remove words send also message to the learner/model
+    //FIXME create packets of item updates, do not send <one item, removed items> per event
     @Override
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
             logger.info("IndexerProcessor-{}: collected {} item types from a corpus of {} items",
                     id, indexer.size(), indexer.itemCount());
-            outputStream.put(new IndexUpdateEvent(null, 0, null, true));
+            aggregationStream.put(new IndexUpdateEvent(null, 0, null, true));
             return true;
         }
         OneContentEvent content = (OneContentEvent) event;
@@ -72,23 +74,32 @@ public class IndexerProcessor<T> implements Processor {
                     id, itemCount, indexer.size());
         }
         if (newItemCount > 0 || !removeVocab.isEmpty()) {
-            // This "double" construction of the Set is necessary for making Kryo works
-            outputStream.put(new IndexUpdateEvent(item, newItemCount, removeVocab, false));
+            IndexUpdateEvent indexUpdate = new IndexUpdateEvent(item, newItemCount, removeVocab, false);
+            aggregationStream.put(indexUpdate);
+            if (learnerStream != null) {
+                indexUpdate.setKey(item.toString());
+                learnerStream.put(indexUpdate);
+            }
         }
         return true;
     }
 
+    public void setLearnerStream(Stream learnerStream) {
+        this.learnerStream = learnerStream;
+    }
+
+    public void setAggregationStream(Stream aggregationStream) {
+        this.aggregationStream = aggregationStream;
+    }
 
     @Override
     public Processor newProcessor(Processor processor) {
         IndexerProcessor p = (IndexerProcessor) processor;
         // FIXME passing the reference is not good if distributed?!
         IndexerProcessor i = new IndexerProcessor(p.indexer.copy());
-        i.outputStream = p.outputStream;
+        i.aggregationStream = p.aggregationStream;
+        i.learnerStream = p.learnerStream;
         return i;
     }
 
-    public void setOutputStream(Stream outputStream) {
-        this.outputStream = outputStream;
-    }
 }

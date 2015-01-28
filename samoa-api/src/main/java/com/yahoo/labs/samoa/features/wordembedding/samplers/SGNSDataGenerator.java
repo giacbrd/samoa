@@ -37,11 +37,8 @@ public class SGNSDataGenerator<T> extends SamplerProcessor<T> {
     private static final Logger logger = LoggerFactory.getLogger(SGNSDataGenerator.class);
     private static final long serialVersionUID = -5611465946745393746L;
 
-    private final int parallelism;
-
-    public SGNSDataGenerator(Sampler sampler, short window, int parallelism) {
-        super(sampler, window);
-        this.parallelism = parallelism;
+    public SGNSDataGenerator(Sampler sampler) {
+        super(sampler);
     }
 
     /**
@@ -49,7 +46,7 @@ public class SGNSDataGenerator<T> extends SamplerProcessor<T> {
      * @param data
      */
     protected void generateTraining(List<T> data) {
-        long dataID = UUID.randomUUID().toString().hashCode();
+        long dataID = data.toString().hashCode();
         learnerStream.put(new DataIDEvent(dataID, data.size(),false, Long.toString(dataID)));
         for (int pos = 0; pos < data.size(); pos++) {
             T item = data.get(pos);
@@ -60,7 +57,7 @@ public class SGNSDataGenerator<T> extends SamplerProcessor<T> {
     @Override
     public Processor newProcessor(Processor processor) {
         SGNSDataGenerator p = (SGNSDataGenerator) processor;
-        SGNSDataGenerator w = new SGNSDataGenerator(p.sampler.copy(), p.window, p.parallelism);
+        SGNSDataGenerator w = new SGNSDataGenerator(p.sampler.copy());
         w.learnerStream = p.learnerStream;
         w.learnerAllStream = p.learnerAllStream;
         w.modelStream = p.modelStream;

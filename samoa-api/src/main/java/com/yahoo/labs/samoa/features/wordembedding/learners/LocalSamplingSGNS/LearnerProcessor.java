@@ -74,6 +74,7 @@ public class LearnerProcessor<T> implements Processor {
         this.sampler.setSeed(seed);
     }
 
+    //FIXME sampler and learner have to use the same local index (no Space Saving necessary)
     @Override
     public boolean process(ContentEvent event) {
         if (event instanceof IndexUpdateEvent) {
@@ -92,6 +93,8 @@ public class LearnerProcessor<T> implements Processor {
                 sampler.remove(removedItem);
             }
             sampler.setItemCount(sampler.getItemCount() + itemCount);
+            //FIXME expensive hack for adding the the item to the local learner
+            learner.getRow(item);
         } if (event.isLastEvent()) {
             lastEventCount++;
         } else if (event instanceof DataIDEvent) {
@@ -106,22 +109,27 @@ public class LearnerProcessor<T> implements Processor {
             DataIDEvent<T> dataIDEvent = (DataIDEvent) event;
             long dataID = dataIDEvent.geDataID();
             LocalData<T> localData = new LocalData<T>((T[]) new Object[dataIDEvent.getDataSize()]);
+//            logger.info("new data: "+dataID+", size: "+localData.data.length);
             tempData.put(dataID, localData);
         } else if (event instanceof ItemInDataEvent) {
             ItemInDataEvent<T> newItemEvent = (ItemInDataEvent<T>) event;
             long dataID = newItemEvent.getDataID();
             T item = newItemEvent.getItem();
+//            logger.info("new item: "+item+" data: "+dataID+", is local: "+tempData.containsKey(dataID));
             // datID must exist in tempData
-            LocalData<T> currData = tempData.get(dataID);
             if (tempData.containsKey(dataID)) {
+                LocalData<T> currData = tempData.get(dataID);
                 if (learner.contains(item)) {
                     if (currData.setItem(newItemEvent.getPosition(), newItemEvent.getItem(), false)) {
                         learn(currData);
+                        tempData.remove(dataID);
                     }
                 } else {
                     currData.setItem(newItemEvent.getPosition(), newItemEvent.getItem(), true);
                 }
+//                logger.info("data updated: "+dataID+", missing: "+currData.missingData);
             } else {
+//                logger.info("item not in data: "+dataID+", item: "+item);
                 synchroStream.put(new RowResponse<T>(item, learner.getRow(item), learner.getContextRow(item), Long.toString(dataID)));
             }
         } else if (event instanceof RowResponse) {
@@ -136,9 +144,11 @@ public class LearnerProcessor<T> implements Processor {
                 tempData.remove(dataID);
             }
         } else if (event instanceof RowUpdate) {
-            RowUpdate update = (RowUpdate) event;
-            learner.updateRow(update.getItem(), update.getGradient());
-            learner.updateContextRow(update.getItem(), update.getContextGradient());
+            RowUpdate<T> update = (RowUpdate<T>) event;
+            T item = update.getItem();
+            learner.updateRow(item, update.getGradient());
+            learner.updateContextRow(item, update.getContextGradient());
+            modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
         //FIXME optimize all this ugly stuff
         if (lastEventCount >= samplerCount && tempData.isEmpty() && !modelAckSent) {
@@ -183,9 +193,16 @@ public class LearnerProcessor<T> implements Processor {
                 }
             }
         }
+//        for (int pos = 0; pos < data.length; pos++) {
+//            logger.info(currData.data+" "+currData.dataCount+" "+currData.missingData);
+//        }
         for (int pos = 0; pos < data.length; pos++) {
             T item = data[pos];
             if (!learner.contains(item)) {
+//                logger.info(item+" "+ gradientUpdates.size());
+//                for (T key: gradientUpdates.keySet()) {
+//                    logger.info(key+" "+ gradientUpdates.get(key).getKey()+" "+gradientUpdates.get(key).getValue());
+//                }
                 synchroStream.put(new RowUpdate(item, gradientUpdates.get(item).getKey(), gradientUpdates.get(item).getValue()));
             }
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
