@@ -177,9 +177,11 @@ public class NegativeSampler<T> implements Sampler<T> {
 
     public List<T> negItems() {
         List<T> negItems = new ArrayList<T>(negative);
-        for (int i = 0; i < negative; i++) {
-            int neg = table[Random.nextInt(table.length)];
-            negItems.add((T) index2item[neg]);
+        if (table != null && table.length > 0) {
+            for (int i = 0; i < negative; i++) {
+                int neg = table[Random.nextInt(table.length)];
+                negItems.add((T) index2item[neg]);
+            }
         }
         return negItems;
     }

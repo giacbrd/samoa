@@ -47,7 +47,7 @@ public class SGNSDataGenerator<T> extends SamplerProcessor<T> {
      */
     protected void generateTraining(List<T> data) {
         long dataID = data.toString().hashCode();
-        learnerStream.put(new DataIDEvent(dataID, data.size(),false, Long.toString(dataID)));
+        learnerStream.put(new DataIDEvent(dataID, data.size(), false, Long.toString(dataID)));
         for (int pos = 0; pos < data.size(); pos++) {
             T item = data.get(pos);
             learnerStream.put(new ItemInDataEvent(item, dataID, pos, false, item.toString()));

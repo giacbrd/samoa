@@ -119,17 +119,22 @@ public class SGNSLocalModel<T> implements Model<T> {
 
     @Override
     public void updateRow(T item, DoubleMatrix update) {
-        syn0.get(item).addi(update);
+        getRowRef(item).addi(update);
     }
 
     @Override
     public void updateContextRow(T item, DoubleMatrix update) {
-        syn1neg.get(item).addi(update);
+        getContextRowRef(item).addi(update);
     }
 
     @Override
     public boolean contains(T item) {
         return syn0.containsKey(item);
+    }
+
+    @Override
+    public long size() {
+        return syn0.size();
     }
 
     @Override

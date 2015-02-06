@@ -50,7 +50,7 @@ public class SGNSLocalLearner<T> implements Model<T> {
     private double alpha = 0.025;
     private double minAlpha = 0.0001;
     private Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows;
-    Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradients;
+    private Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradients;
 
     public IntOption layerSizeOption = new IntOption("layerSize", 'l', "The number of columns of the model matrices.",
             layerSize);
@@ -101,6 +101,7 @@ public class SGNSLocalLearner<T> implements Model<T> {
             //logger.info("N " + negItems.get(i - 1) +" "+getContextRowGlobally(negItems.get(i - 1)));
             l2b.putRow(i, getContextRowGlobally(negItems.get(i - 1)));
         }
+        //FIXME precompute this
         DoubleMatrix labels = DoubleMatrix.zeros(l2b.rows);
         labels.put(0, 1.0);
         // Compute the outputs of the model, for the true context and the other negatives one (propagate hidden -> output)
@@ -113,12 +114,12 @@ public class SGNSLocalLearner<T> implements Model<T> {
 //        logger.info(item + " " + contextItem);
 //        logger.info(l1.toString() + "\n" + l2b.getRow(0));
 //        logger.info(alpha+ " " + gb);
-        // Now update matrices X and C
+        // Now update matrices W of words and C of contexts
         // Learn C
         DoubleMatrix contextGradient = l1.mul(gb.get(0));
         DoubleMatrix newContextRow = l2b.getRow(0).add(contextGradient);
         if (externalRows.containsKey(contextItem)) {
-            gradients.get(contextItem).setRight(contextGradient);
+            addContextGradient(contextItem, contextGradient);
         }
         setContextRowGlobally(contextItem, newContextRow);
         ListIterator<T> negItemsIter = negItems.listIterator();
@@ -127,7 +128,7 @@ public class SGNSLocalLearner<T> implements Model<T> {
             DoubleMatrix negGradient = l1.mul(gb.get(i));
             DoubleMatrix newNegRow = l2b.getRow(i).add(negGradient);
             if (externalRows.containsKey(negItem)) {
-                gradients.get(negItem).setRight(negGradient);
+                addContextGradient(negItem, negGradient);
             }
             setContextRowGlobally(negItem, newNegRow);
         }
@@ -135,12 +136,34 @@ public class SGNSLocalLearner<T> implements Model<T> {
         DoubleMatrix neu1e = gb.transpose().mmul(l2b);
         DoubleMatrix newRow = l1.addi(neu1e);
         if (externalRows.containsKey(item)) {
-            gradients.get(item).setLeft(neu1e);
+            addGradient(item, neu1e);
         }
         //FIXME is it necessary to put back l1? for now yes
         setRowGlobally(item, newRow);
         //logger.info(syn0.get(item) + "\n" + syn1neg.get(contextItem));
         return gradients;
+    }
+
+    //FIXME optimize redundancy!
+
+    //FIXME gradient updates do not work!
+
+    private void addGradient(T item, DoubleMatrix gradient) {
+        //FIXME gradients must contain item!
+        if (gradients.get(item).getLeft() != null) {
+            gradients.get(item).getLeft().addi(gradient);
+        } else {
+            gradients.get(item).setLeft(gradient);
+        }
+    }
+
+    private void addContextGradient(T item, DoubleMatrix gradient) {
+        //FIXME gradients must contain item!
+        if (gradients.get(item).getRight() != null) {
+            gradients.get(item).getRight().addi(gradient);
+        } else {
+            gradients.get(item).setRight(gradient);
+        }
     }
 
     private void setContextRowGlobally(T contextItem, DoubleMatrix contextRow) {
@@ -222,19 +245,32 @@ public class SGNSLocalLearner<T> implements Model<T> {
         return getContextRowRef(item).dup();
     }
 
+    public void setRow(T item, DoubleMatrix row) {
+        syn0.put(item, row);
+    }
+
+    public void setContextRow(T item, DoubleMatrix row) {
+        syn1neg.put(item, row);
+    }
+
     @Override
     public void updateRow(T item, DoubleMatrix update) {
-        syn0.get(item).addi(update);
+        getRowRef(item).addi(update);
     }
 
     @Override
     public void updateContextRow(T item, DoubleMatrix update) {
-        syn1neg.get(item).addi(update);
+        getContextRowRef(item).addi(update);
     }
 
     @Override
     public boolean contains(T item) {
         return syn0.containsKey(item);
+    }
+
+    @Override
+    public long size() {
+        return syn0.size();
     }
 
     @Override
@@ -244,14 +280,22 @@ public class SGNSLocalLearner<T> implements Model<T> {
 
     public void setExternalRows(Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
         this.externalRows = externalRows;
+        initGradients();
+    }
+
+    private void initGradients() {
         gradients = new HashMap<>(externalRows.size());
         for (T key: externalRows.keySet()) {
-            gradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>());
+            gradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>(null, null));
         }
     }
 
     public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getGradients() {
         return gradients;
+    }
+
+    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getExternalRows() {
+        return externalRows;
     }
 
     @Override

@@ -51,6 +51,8 @@ public interface Model<T> {
 
     boolean contains(T item);
 
+    long size();
+
     void setSeed(long seed);
 
 //    /**

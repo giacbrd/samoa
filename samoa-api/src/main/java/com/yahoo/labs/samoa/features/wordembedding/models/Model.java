@@ -76,7 +76,7 @@ public class Model<T> implements Processor {
                         if (!outPath.isFile()) {
                             outPath.mkdirs();
                         } else {
-                            throw new IOException("Model path is an existing file.");
+                            throw new IOException("Model path is an existing file: " + outPath.getAbsolutePath());
                         }
                         FileOutputStream fos = new FileOutputStream(outPath.getAbsolutePath() + File.separator + "syn0norm");
                         ObjectOutputStream oos = new ObjectOutputStream(fos);

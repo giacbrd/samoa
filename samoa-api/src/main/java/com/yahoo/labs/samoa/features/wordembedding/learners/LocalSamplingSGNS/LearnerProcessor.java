@@ -142,17 +142,21 @@ public class LearnerProcessor<T> implements Processor {
         } else if (event instanceof RowUpdate) {
             RowUpdate<T> update = (RowUpdate<T>) event;
             T item = update.getItem();
-            if (update.getGradient() != null) {
-                learner.updateRow(item, update.getGradient());
+            if (update.getRow() != null) {
+//                if(item.toString().equals("and")) logger.info(update.getRow()+"");
+                learner.setRow(item, update.getRow());
             }
-            if (update.getContextGradient() != null) {
-                learner.updateContextRow(item, update.getContextGradient());
+            if (update.getContextRow() != null) {
+//                if(item.toString().equals("and")) logger.info(update.getContextRow()+" context");
+                learner.setContextRow(item, update.getContextRow());
             }
+//            if(item.toString().equals("and")) logger.info("ROW "+learner.getRow(item));
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
         //FIXME optimize all this ugly stuff
         if (lastEventCount >= samplerCount && tempData.isEmpty() && !modelAckSent) {
-            logger.info(String.format("LearnerProcessor-%d: finished after %d iterations", id, iterations));
+            logger.info(String.format("LearnerProcessor-%d: finished after %d iterations with %d items",
+                    id, iterations, learner.size()));
             modelStream.put(new ModelUpdateEvent(null, null, true));
             modelAckSent = true;
         }
@@ -169,7 +173,6 @@ public class LearnerProcessor<T> implements Processor {
             // now go over all items from the (reduced) window, predicting each one in turn
             int start = Math.max(0, pos - window + reduced_window);
             int end = pos + window + 1 - reduced_window;
-            //TODO shuffle data2 so that word pairs are not ordered by item: probably less collisions in the learning
             T[] data2 = Arrays.copyOfRange(data, start, end > data.length ? data.length : end);
             // Fixed a context item, iterate through items which have it in their context
             for (int pos2 = 0; pos2 < data2.length; pos2++) {
@@ -179,10 +182,11 @@ public class LearnerProcessor<T> implements Processor {
                     List<T> tempNegItems = ((NegativeSampler<T>) sampler).negItems();
                     List<T> negItems = new ArrayList<>(tempNegItems.size());
                     for (T negItem: tempNegItems) {
-                        //FIXME if the condition is not met, word pair is not sent (the original word2vec does the same)
+                        //FIXME if the condition is not met, word pair is not learnt (the original word2vec does the same)
                         if (!negItem.equals(contextItem)) {
                             negItems.add(negItem);
                         }
+//                        logger.info(item+" "+contextItem+" "+negItem+"");
                     }
                     learner.train(item, contextItem, negItems);
                     iterations++;
@@ -192,24 +196,26 @@ public class LearnerProcessor<T> implements Processor {
                 }
             }
         }
-        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> gradientUpdates = learner.getGradients();
+        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> rowUpdates = learner.getExternalRows();
 //        for (int pos = 0; pos < data.length; pos++) {
 //            logger.info(currData.data+" "+currData.dataCount+" "+currData.missingData);
 //        }
-        for (int pos = 0; pos < data.length; pos++) {
-            T item = data[pos];
-            if (!learner.contains(item)) {
-//                logger.info(item+" "+ gradientUpdates.size());
+//                logger.info(gradientUpdates.size());
 //                for (T key: gradientUpdates.keySet()) {
 //                    logger.info(key+" "+ gradientUpdates.get(key).getKey()+" "+gradientUpdates.get(key).getValue());
 //                }
-                DoubleMatrix gradient = gradientUpdates.get(item).getKey();
-                DoubleMatrix contextGradient = gradientUpdates.get(item).getValue();
-                if (gradient != null || contextGradient != null) {
-                    synchroStream.put(new RowUpdate(item, gradient, contextGradient, item.toString()));
+        for (int pos = 0; pos < data.length; pos++) {
+            T item = data[pos];
+            if (!learner.contains(item)) {
+                DoubleMatrix rowUpdate = rowUpdates.get(item).getKey();
+                DoubleMatrix contextUpdate = rowUpdates.get(item).getValue();
+                if (rowUpdate != null || contextUpdate != null) {
+                    synchroStream.put(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
                 }
+            } else {
+                //FIXME send only the updated rows
+                modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
             }
-            modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
     }
 

@@ -30,18 +30,18 @@ public class RowUpdate<T> implements ContentEvent {
 
     private static final long serialVersionUID = 65885385385095409L;
     private T item;
-    private DoubleMatrix gradient;
-    private DoubleMatrix contextGradient;
+    private DoubleMatrix row;
+    private DoubleMatrix contextRow;
     private String key;
     private boolean isLastEvent = false;
 
     public RowUpdate() {
     }
 
-    public RowUpdate(T item, DoubleMatrix gradient, DoubleMatrix contextGradient, String key) {
+    public RowUpdate(T item, DoubleMatrix row, DoubleMatrix contextRow, String key) {
         this.item = item;
-        this.gradient = gradient;
-        this.contextGradient = contextGradient;
+        this.row = row;
+        this.contextRow = contextRow;
         this.key = key;
     }
 
@@ -65,11 +65,11 @@ public class RowUpdate<T> implements ContentEvent {
         return item;
     }
 
-    public DoubleMatrix getGradient() {
-        return gradient;
+    public DoubleMatrix getRow() {
+        return row;
     }
 
-    public DoubleMatrix getContextGradient() {
-        return contextGradient;
+    public DoubleMatrix getContextRow() {
+        return contextRow;
     }
 }
