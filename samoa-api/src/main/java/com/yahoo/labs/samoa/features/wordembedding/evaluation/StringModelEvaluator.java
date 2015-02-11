@@ -296,6 +296,11 @@ public class StringModelEvaluator {
             wordOccurrences+=e.syn0norm.get(word).getRight();
         }
         logger.info("Sum of word counts: "+wordOccurrences);
+//        for (String key: e.syn0norm.keySet()) {
+//            if (e.syn0norm.get(key).getLeft() == null) {
+//                logger.info(key);
+//            }
+//        }
         logger.info(e.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>(), 10).toString());
         logger.info(e.most_similar(new ArrayList<String>(Arrays.asList(new String[]{"anarchism"})), new ArrayList<String>(), 10).toString());
         //logger.info(e.similarity_vectors(new ArrayList<String>(Arrays.asList(new String[]{"king"})), new ArrayList<String>()).get("devote").toString());

@@ -42,7 +42,7 @@ public class LearnerProcessor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(LearnerProcessor.class);
 
-    private final SGNSLocalLearner learner;
+    private SGNSLocalLearner learner;
     private long seed = 1;
     private Stream synchroStream;
     private Stream modelStream;

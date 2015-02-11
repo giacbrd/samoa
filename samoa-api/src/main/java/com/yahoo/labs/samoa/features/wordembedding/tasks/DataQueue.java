@@ -26,9 +26,10 @@ import com.yahoo.labs.samoa.topology.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 
 /**
@@ -44,13 +45,13 @@ public class DataQueue<T> implements Processor {
     private Stream outputStream;
     /** Data bytes are computed on the string representation of items */
     private long totalBytes = 0;
-    ArrayDeque<List<T>> queue;
+    LinkedList<List<T>> queue;
     long delay;
 
     public DataQueue(int maxDataSamples, long delay) {
         this.delay = delay;
         this.maxDataSamples = Math.max(1, maxDataSamples);
-        queue = new ArrayDeque<List<T>>((int) this.maxDataSamples);
+        queue = new LinkedList<List<T>>();
     }
 
     @Override
@@ -74,7 +75,8 @@ public class DataQueue<T> implements Processor {
         Object content = contentEvent.getContent();
         if (content != null) {
             List<T> data = (List<T>) content;
-            queue.addFirst(data);
+            //FIXME this is O(n)! must be O(1)
+            queue.add(org.jblas.util.Random.nextInt(Math.max(1, queue.size())), data);
             for (T item: data) {
                 totalBytes += ((Object) item).toString().getBytes().length;
             }
@@ -107,7 +109,7 @@ public class DataQueue<T> implements Processor {
         DataQueue s = new DataQueue(p.maxDataSamples, p.delay);
         s.outputStream = p.outputStream;
         s.totalBytes = p.totalBytes;
-        s.queue = new ArrayDeque<List<T>>(p.queue);
+        s.queue = new LinkedList<List<T>>(p.queue);
         return s;
     }
 

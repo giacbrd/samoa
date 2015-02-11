@@ -116,7 +116,7 @@ public class LocalSamplingWord2vecTask implements Task, Configurable {
         toDistributor = builder.createStream(entrance);
 
         // Routing of sentences to indexer and to buffer
-        wordsRouter = new DataDistributor();
+        wordsRouter = new DataDistributor(seedOption.getValue());
         builder.addProcessor(wordsRouter);
         builder.connectInputAllStream(toDistributor, wordsRouter);
         toIndexer = builder.createStream(wordsRouter);

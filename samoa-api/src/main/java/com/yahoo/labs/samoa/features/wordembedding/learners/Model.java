@@ -28,7 +28,7 @@ import java.io.Serializable;
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
  */
-public interface Model<T> {
+public interface Model<T> extends Configurable, Serializable  {
 
     /**
      * Initialize the configuration with the CLI options.
@@ -45,9 +45,9 @@ public interface Model<T> {
 
     DoubleMatrix getContextRow(T item);
 
-    void updateRow(T item, DoubleMatrix update);
+    void updateRow(T item, DoubleMatrix gradient);
 
-    void updateContextRow(T item, DoubleMatrix update);
+    void updateContextRow(T item, DoubleMatrix gradient);
 
     boolean contains(T item);
 

@@ -146,8 +146,6 @@ public class SGNSLocalLearner<T> implements Model<T> {
 
     //FIXME optimize redundancy!
 
-    //FIXME gradient updates do not work!
-
     private void addGradient(T item, DoubleMatrix gradient) {
         //FIXME gradients must contain item!
         if (gradients.get(item).getLeft() != null) {
@@ -245,22 +243,22 @@ public class SGNSLocalLearner<T> implements Model<T> {
         return getContextRowRef(item).dup();
     }
 
-    public void setRow(T item, DoubleMatrix row) {
-        syn0.put(item, row);
-    }
+//    public void setRow(T item, DoubleMatrix row) {
+//        syn0.put(item, row);
+//    }
+//
+//    public void setContextRow(T item, DoubleMatrix row) {
+//        syn1neg.put(item, row);
+//    }
 
-    public void setContextRow(T item, DoubleMatrix row) {
-        syn1neg.put(item, row);
+    @Override
+    public void updateRow(T item, DoubleMatrix gradient) {
+        getRowRef(item).addi(gradient);
     }
 
     @Override
-    public void updateRow(T item, DoubleMatrix update) {
-        getRowRef(item).addi(update);
-    }
-
-    @Override
-    public void updateContextRow(T item, DoubleMatrix update) {
-        getContextRowRef(item).addi(update);
+    public void updateContextRow(T item, DoubleMatrix gradient) {
+        getContextRowRef(item).addi(gradient);
     }
 
     @Override

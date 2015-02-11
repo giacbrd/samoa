@@ -43,9 +43,9 @@ public class LearnerProcessor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(LearnerProcessor.class);
 
-    private final SGNSLocalLearner learner;
+    private SGNSLocalLearner learner;
     private short window;
-    private final Sampler<T> sampler;
+    private Sampler<T> sampler;
     private long seed = 1;
     private Stream synchroStream;
     private Stream modelStream;
@@ -93,8 +93,8 @@ public class LearnerProcessor<T> implements Processor {
                 sampler.remove(removedItem);
             }
             sampler.setItemCount(sampler.getItemCount() + itemCount);
-            //FIXME expensive hack for adding the the item to the local learner
-            learner.getRow(item);
+            //FIXME expensive hack for adding a new item to the local learner and the model
+            modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         } if (event.isLastEvent()) {
             lastEventCount++;
         } else if (event instanceof DataIDEvent) {
@@ -119,7 +119,7 @@ public class LearnerProcessor<T> implements Processor {
 //            logger.info("new item: "+item+" data: "+dataID+", is local: "+tempData.containsKey(dataID));
             if (tempData.containsKey(dataID)) {
                 LocalData<T> currData = tempData.get(dataID);
-                if (currData.setLocalItem(pos, item)) {
+                if (currData.setItem(pos, item, learner.getRowRef(item))) {
                     learn(currData);
                     tempData.remove(dataID);
                 }
@@ -136,24 +136,31 @@ public class LearnerProcessor<T> implements Processor {
             DoubleMatrix contextRow = response.getContextRow();
             LocalData<T> currData = tempData.get(dataID);
             if (currData.setExternalItem(pos, item, row, contextRow)) {
+//                logger.info(id + ": size " + tempData.size() + " " + currData.externalRows.size() + " " +
+//                        currData.externalRows.keySet() + "\n" + Arrays.toString(currData.data));
                 learn(currData);
                 tempData.remove(dataID);
             }
         } else if (event instanceof RowUpdate) {
             RowUpdate<T> update = (RowUpdate<T>) event;
             T item = update.getItem();
+            if (!learner.contains(item)) {
+                logger.error(this.getClass().getSimpleName()+"-{}: wrong row update for item {}, this learner does " +
+                        "not contain it", id, item);
+                return false;
+            }
             if (update.getRow() != null) {
 //                if(item.toString().equals("and")) logger.info(update.getRow()+"");
-                learner.setRow(item, update.getRow());
+                learner.updateRow(item, update.getRow());
             }
             if (update.getContextRow() != null) {
 //                if(item.toString().equals("and")) logger.info(update.getContextRow()+" context");
-                learner.setContextRow(item, update.getContextRow());
+                learner.updateContextRow(item, update.getContextRow());
             }
 //            if(item.toString().equals("and")) logger.info("ROW "+learner.getRow(item));
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
-        //FIXME optimize all this ugly stuff
+        //FIXME it is not guaranteed that all the model updates after row updates will be sent!
         if (lastEventCount >= samplerCount && tempData.isEmpty() && !modelAckSent) {
             logger.info(String.format("LearnerProcessor-%d: finished after %d iterations with %d items",
                     id, iterations, learner.size()));
@@ -196,7 +203,7 @@ public class LearnerProcessor<T> implements Processor {
                 }
             }
         }
-        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> rowUpdates = learner.getExternalRows();
+        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> gradients = learner.getGradients();
 //        for (int pos = 0; pos < data.length; pos++) {
 //            logger.info(currData.data+" "+currData.dataCount+" "+currData.missingData);
 //        }
@@ -204,16 +211,15 @@ public class LearnerProcessor<T> implements Processor {
 //                for (T key: gradientUpdates.keySet()) {
 //                    logger.info(key+" "+ gradientUpdates.get(key).getKey()+" "+gradientUpdates.get(key).getValue());
 //                }
-        for (int pos = 0; pos < data.length; pos++) {
-            T item = data[pos];
-            if (!learner.contains(item)) {
-                DoubleMatrix rowUpdate = rowUpdates.get(item).getKey();
-                DoubleMatrix contextUpdate = rowUpdates.get(item).getValue();
-                if (rowUpdate != null || contextUpdate != null) {
-                    synchroStream.put(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
-                }
-            } else {
-                //FIXME send only the updated rows
+        for (T item: gradients.keySet()) {
+            DoubleMatrix rowUpdate = gradients.get(item).getKey();
+            DoubleMatrix contextUpdate = gradients.get(item).getValue();
+            if ((rowUpdate != null || contextUpdate != null) && (!rowUpdate.isEmpty() || !contextUpdate.isEmpty())) {
+                synchroStream.put(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
+            }
+        }
+        for (T item: currData.rowHashes.keySet()) {
+            if (currData.rowChanged(item, learner.getRowRef(item))) {
                 modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
             }
         }

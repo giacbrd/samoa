@@ -28,10 +28,7 @@ import org.jblas.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
@@ -44,7 +41,7 @@ public class NegativeSampler<T> implements Sampler<T> {
     private static final long serialVersionUID = 7708675565227109637L;
 
     private double subsamplThr = 0.0;
-    private Counter<T> vocab;
+    private Map<T, Long> vocab;
     private int itemsPerUpdate = 100000;
     private Double normFactor;
     private double power = 0.75;
@@ -115,7 +112,7 @@ public class NegativeSampler<T> implements Sampler<T> {
         normFactor = 1.0;
         itemCount = 0;
         //TODO a very interesting alternative is time-aware counter: yongsub_CIKM2014.pdf
-        vocab = new StreamSummary<T>(capacity);
+        vocab = new HashMap<T, Long>();
     }
 
     @Override
@@ -142,7 +139,7 @@ public class NegativeSampler<T> implements Sampler<T> {
         //compute sum of all power (Z in paper)
         normFactor = 0.0;
         int vocabSize = vocab.size();
-        Iterator<Map.Entry<T, Long>> vocabIter = vocab.iterator();
+        Iterator<Map.Entry<T, Long>> vocabIter = vocab.entrySet().iterator();
         while (vocabIter.hasNext()) {
             normFactor += Math.pow(vocabIter.next().getValue(), power);
         }
@@ -151,7 +148,7 @@ public class NegativeSampler<T> implements Sampler<T> {
         index2item = new Object[vocabSize];
         //go through the whole table and fill it up with the word indexes proportional to a word's count**power
         int widx = 0;
-        vocabIter = vocab.iterator();
+        vocabIter = vocab.entrySet().iterator();
         Map.Entry<T, Long> vocabItem = vocabIter.next();
         long count = vocabItem.getValue();
         index2item[widx] = vocabItem.getKey();
@@ -244,8 +241,10 @@ public class NegativeSampler<T> implements Sampler<T> {
         s.index2item = index2item.clone();
         s.normFactor = normFactor;
         s.itemCount = itemCount;
-        //FIXME need to clone this!
-        s.vocab = vocab;
+        s.vocab = new HashMap<T, Long>();
+        for (T key: vocab.keySet()) {
+            s.vocab.put(key, vocab.get(key));
+        }
         return s;
     }
 }
