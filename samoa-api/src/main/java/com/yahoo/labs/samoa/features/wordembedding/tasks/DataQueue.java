@@ -23,13 +23,11 @@ package com.yahoo.labs.samoa.features.wordembedding.tasks;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.topology.Stream;
+import org.jblas.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayDeque;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 
 /**
@@ -40,31 +38,45 @@ public class DataQueue<T> implements Processor {
     private static final Logger logger = LoggerFactory.getLogger(DataQueue.class);
     private static final long serialVersionUID = 6700446592470187678L;
 
-    private final int maxDataSamples;
+    private final int size;
     private int id;
     private Stream outputStream;
     /** Data bytes are computed on the string representation of items */
     private long totalBytes = 0;
-    LinkedList<List<T>> queue;
+    List<List<T>> queue;
     long delay;
+    private int counter;
+    private LinkedList<List<T>> outData;
+    private long seed = 1;
 
-    public DataQueue(int maxDataSamples, long delay) {
+    public DataQueue(int size, long delay, long seed) {
         this.delay = delay;
-        this.maxDataSamples = Math.max(1, maxDataSamples);
-        queue = new LinkedList<List<T>>();
+        this.seed = seed;
+        this.size = Math.max(1, size);
+        queue = new ArrayList<>(size);
+        outData = new LinkedList<>();
     }
 
     @Override
     public void onCreate(int id) {
         this.id = id;
         totalBytes = 0;
+        counter = 0;
+        setSeed(seed);
     }
 
     @Override
     public boolean process(ContentEvent event) {
 //        logger.info(this.getClass().getSimpleName()+"-{}: {} {}", id, queue.size(), event.isLastEvent());
         if (event.isLastEvent()) {
-            while (!queue.isEmpty()) {
+            //FIXME optimize this O(2n) operation for emptying the queue?
+            Collections.shuffle(queue, new java.util.Random(seed));
+            for (int i = 0; i < queue.size(); i++) {
+                if (queue.get(i) != null) {
+                    outData.addFirst(queue.get(i));
+                }
+            }
+            while (!outData.isEmpty()) {
                 pollData();
             }
 //            logger.info(this.getClass().getSimpleName()+"-{}: last event, {}", id, queue.size());
@@ -75,22 +87,29 @@ public class DataQueue<T> implements Processor {
         Object content = contentEvent.getContent();
         if (content != null) {
             List<T> data = (List<T>) content;
-            //FIXME this is O(n)! must be O(1)
-            queue.add(org.jblas.util.Random.nextInt(Math.max(1, queue.size())), data);
+            // Fill the queue at the beginning
+            if (counter < size) {
+                queue.add(data);
+                counter++;
+            } else {
+                int index = Random.nextInt(size);
+                outData.addFirst(queue.get(index));
+                queue.set(index, data);
+            }
             for (T item: data) {
                 totalBytes += ((Object) item).toString().getBytes().length;
             }
         }
-        while (queue.size() >= maxDataSamples) {
+        while (!outData.isEmpty()) {
             pollData();
         }
         return true;
     }
 
     private void pollData() {
-        List<T> outData = queue.pollLast();
-        if (outData != null) {
-            for (T item: outData) {
+        List<T> data = outData.pollLast();
+        if (data != null) {
+            for (T item: data) {
                 totalBytes -= ((Object) item).toString().getBytes().length;
             }
 //            logger.info(this.getClass().getSimpleName()+"-{}: poll, {}", id, queue.size());
@@ -99,17 +118,30 @@ public class DataQueue<T> implements Processor {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            outputStream.put(new OneContentEvent<List<T>>(outData, false));
+            outputStream.put(new OneContentEvent<List<T>>(data, false));
         }
+    }
+
+    public void setSeed(long seed) {
+        this.seed = seed;
+        Random.seed(seed);
     }
 
     @Override
     public Processor newProcessor(Processor processor) {
         DataQueue p = (DataQueue) processor;
-        DataQueue s = new DataQueue(p.maxDataSamples, p.delay);
+        DataQueue s = new DataQueue(p.size, p.delay, p.seed);
         s.outputStream = p.outputStream;
         s.totalBytes = p.totalBytes;
-        s.queue = new LinkedList<List<T>>(p.queue);
+        s.counter = p.counter;
+        s.outData = new LinkedList<List<T>>();
+        for (Object data: p.outData) {
+            s.outData.add((List<T>) data);
+        }
+        s.queue = new ArrayList<List<T>>(p.queue.size());
+        for (Object data: p.queue) {
+            s.queue.add((List<T>) data);
+        }
         return s;
     }
 

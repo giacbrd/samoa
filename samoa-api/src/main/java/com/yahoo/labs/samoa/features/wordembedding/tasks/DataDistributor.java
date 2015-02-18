@@ -42,19 +42,13 @@ public class DataDistributor<T> implements Processor {
     private static final long serialVersionUID = 4821092756503632809L;
 
     private int id;
-    protected long seed = 1;
     private Stream itemStream;
     private Stream dataStream;
     private Stream dataAllStream;
 
-    public DataDistributor(long seed) {
-        this.seed = seed;
-    }
-
     @Override
     public void onCreate(int id) {
         this.id = id;
-        setSeed(seed);
     }
 
     @Override
@@ -88,16 +82,10 @@ public class DataDistributor<T> implements Processor {
     }
 
 
-    public void setSeed(long seed) {
-        this.seed = seed;
-        Random.seed(seed);
-    }
-
-
     @Override
     public Processor newProcessor(Processor processor) {
         DataDistributor p = (DataDistributor) processor;
-        DataDistributor m = new DataDistributor(p.seed);
+        DataDistributor m = new DataDistributor();
         m.itemStream = p.itemStream;
         m.dataStream = p.dataStream;
         m.dataAllStream = p.dataAllStream;
