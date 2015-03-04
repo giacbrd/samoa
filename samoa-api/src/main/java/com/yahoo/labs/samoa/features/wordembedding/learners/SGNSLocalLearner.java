@@ -23,6 +23,7 @@ package com.yahoo.labs.samoa.features.wordembedding.learners;
 
 import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.IntOption;
+import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.jblas.DoubleMatrix;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
@@ -43,14 +45,14 @@ public class SGNSLocalLearner<T> implements Model<T> {
     private static final Logger logger = LoggerFactory.getLogger(SGNSLocalLearner.class);
     private static final long serialVersionUID = 8581722962299330045L;
 
-    private Map<T, DoubleMatrix> syn0;
+    private ConcurrentHashMap<T, DoubleMatrix> syn0;
     private int layerSize = 200;
     private long seed = 1;
-    private Map<T, DoubleMatrix> syn1neg;
+    private ConcurrentHashMap<T, DoubleMatrix> syn1neg;
     private double alpha = 0.025;
     private double minAlpha = 0.0001;
-    private Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows;
-    private Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradients;
+    private ConcurrentHashMap<Long, Map<T, MutablePair<DoubleMatrix, DoubleMatrix>>> externalRows;
+    private ConcurrentHashMap<Long, Map<T, MutablePair<DoubleMatrix, DoubleMatrix>>> gradients;
 
     public IntOption layerSizeOption = new IntOption("layerSize", 'l', "The number of columns of the model matrices.",
             layerSize);
@@ -85,21 +87,22 @@ public class SGNSLocalLearner<T> implements Model<T> {
         this.minAlpha = minAlpha;
         this.layerSize = layer1Size;
         this.seed = seed;
-        syn0 = new HashMap<T, DoubleMatrix>(1000000);
-        syn1neg = new HashMap<T, DoubleMatrix>(1000000);
-        setExternalRows(new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>());
+        syn0 = new ConcurrentHashMap<T, DoubleMatrix>(1000000);
+        syn1neg = new ConcurrentHashMap<T, DoubleMatrix>(1000000);
+        externalRows = new ConcurrentHashMap<>();
+        gradients = new ConcurrentHashMap<>();
     }
 
 
-    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> train(T item, T contextItem, List<T> negItems) {
-        DoubleMatrix l1 = getRowGlobally(item);
+    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> train(long dataID, T item, T contextItem, List<T> negItems) {
+        DoubleMatrix l1 = getRowGlobally(dataID, item);
         //logger.info("_ "+item +" "+getRowGlobally(item));
         DoubleMatrix l2b = new DoubleMatrix(negItems.size()+1, layerSize);
         //logger.info("c "+contextItem +" "+getContextRowGlobally(contextItem));
-        l2b.putRow(0, getContextRowGlobally(contextItem));
+        l2b.putRow(0, getContextRowGlobally(dataID, contextItem));
         for (int i = 1; i < l2b.rows; i++) {
             //logger.info("N " + negItems.get(i - 1) +" "+getContextRowGlobally(negItems.get(i - 1)));
-            l2b.putRow(i, getContextRowGlobally(negItems.get(i - 1)));
+            l2b.putRow(i, getContextRowGlobally(dataID, negItems.get(i - 1)));
         }
         //FIXME precompute this
         DoubleMatrix labels = DoubleMatrix.zeros(l2b.rows);
@@ -118,101 +121,106 @@ public class SGNSLocalLearner<T> implements Model<T> {
         // Learn C
         DoubleMatrix contextGradient = l1.mul(gb.get(0));
         DoubleMatrix newContextRow = l2b.getRow(0).add(contextGradient);
-        if (externalRows.containsKey(contextItem)) {
-            addContextGradient(contextItem, contextGradient);
+        if (gradients.get(dataID).containsKey(contextItem)) {
+            addContextGradient(dataID, contextItem, contextGradient);
         }
-        setContextRowGlobally(contextItem, newContextRow);
+        setContextRowGlobally(dataID, contextItem, newContextRow);
         ListIterator<T> negItemsIter = negItems.listIterator();
         for (int i = 1; i < l2b.rows; i++) {
             T negItem = negItemsIter.next();
             DoubleMatrix negGradient = l1.mul(gb.get(i));
             DoubleMatrix newNegRow = l2b.getRow(i).add(negGradient);
-            if (externalRows.containsKey(negItem)) {
-                addContextGradient(negItem, negGradient);
+            if (gradients.get(dataID).containsKey(negItem)) {
+                addContextGradient(dataID, negItem, negGradient);
             }
-            setContextRowGlobally(negItem, newNegRow);
+            setContextRowGlobally(dataID, negItem, newNegRow);
         }
         // Gradient error for learning W
         DoubleMatrix neu1e = gb.transpose().mmul(l2b);
         DoubleMatrix newRow = l1.addi(neu1e);
-        if (externalRows.containsKey(item)) {
-            addGradient(item, neu1e);
+        if (gradients.get(dataID).containsKey(item)) {
+            addGradient(dataID, item, neu1e);
         }
         //FIXME is it necessary to put back l1? for now yes
-        setRowGlobally(item, newRow);
+        setRowGlobally(dataID, item, newRow);
         //logger.info(syn0.get(item) + "\n" + syn1neg.get(contextItem));
-        return gradients;
+        return gradients.get(dataID);
     }
 
     //FIXME optimize redundancy!
 
-    private void addGradient(T item, DoubleMatrix gradient) {
+    private void addGradient(long dataID, T item, DoubleMatrix gradient) {
         //FIXME gradients must contain item!
-        if (gradients.get(item).getLeft() != null) {
-            gradients.get(item).getLeft().addi(gradient);
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempGrads = gradients.get(dataID);
+        if (tempGrads.get(item).getLeft() != null) {
+            tempGrads.get(item).getLeft().addi(gradient);
         } else {
-            gradients.get(item).setLeft(gradient);
+            tempGrads.get(item).setLeft(gradient);
         }
     }
 
-    private void addContextGradient(T item, DoubleMatrix gradient) {
+    private void addContextGradient(long dataID, T item, DoubleMatrix gradient) {
         //FIXME gradients must contain item!
-        if (gradients.get(item).getRight() != null) {
-            gradients.get(item).getRight().addi(gradient);
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempGrads = gradients.get(dataID);
+        if (tempGrads.get(item).getRight() != null) {
+            tempGrads.get(item).getRight().addi(gradient);
         } else {
-            gradients.get(item).setRight(gradient);
+            tempGrads.get(item).setRight(gradient);
         }
     }
 
-    private void setContextRowGlobally(T contextItem, DoubleMatrix contextRow) {
-        if (externalRows.containsKey(contextItem)) {
-            externalRows.get(contextItem).setRight(contextRow);
+    private void setContextRowGlobally(long dataID, T contextItem, DoubleMatrix contextRow) {
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempExtRows = externalRows.get(dataID);
+        if (tempExtRows.containsKey(contextItem)) {
+            tempExtRows.get(contextItem).setRight(contextRow);
         } else {
             syn1neg.put(contextItem, contextRow);
         }
     }
 
-    private void setRowGlobally(T item, DoubleMatrix row) {
-        if (externalRows.containsKey(item)) {
-            externalRows.get(item).setLeft(row);
+    private void setRowGlobally(long dataID, T item, DoubleMatrix row) {
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempExtRows = externalRows.get(dataID);
+        if (tempExtRows.containsKey(item)) {
+            tempExtRows.get(item).setLeft(row);
         } else {
             syn0.put(item, row);
         }
     }
 
-    private DoubleMatrix getContextRowGlobally(T contextItem) {
-        if (externalRows.containsKey(contextItem) && externalRows.get(contextItem).getRight() != null) {
-            return externalRows.get(contextItem).getRight();
+    private DoubleMatrix getContextRowGlobally(long dataID, T contextItem) {
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempExtRows = externalRows.get(dataID);
+        if (tempExtRows.containsKey(contextItem) &&
+                tempExtRows.get(contextItem).getRight() != null) {
+            return tempExtRows.get(contextItem).getRight();
         } else {
             return getContextRowRef(contextItem);
         }
     }
 
-    private DoubleMatrix getRowGlobally(T item) {
-        if (externalRows.containsKey(item) && externalRows.get(item).getLeft() != null) {
-            return externalRows.get(item).getLeft();
+    private DoubleMatrix getRowGlobally(long dataID, T item) {
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempExtRows = externalRows.get(dataID);
+        if (tempExtRows.containsKey(item) && tempExtRows.get(item).getLeft() != null) {
+            return tempExtRows.get(item).getLeft();
         } else {
             return getRowRef(item);
         }
     }
 
     public DoubleMatrix getRowRef(T item) {
-        DoubleMatrix row = syn0.get(item);
-        if (row == null) {
+        if (!syn0.containsKey(item)) {
             org.jblas.util.Random.seed((long) (item + Long.toString(seed)).hashCode());
-            row = DoubleMatrix.rand(layerSize).subi(0.5).divi(layerSize);
+            DoubleMatrix row = DoubleMatrix.rand(layerSize).subi(0.5).divi(layerSize);
             syn0.put(item, row);
         }
-        return row;
+        return syn0.get(item);
     }
 
     public DoubleMatrix getContextRowRef(T item) {
-        DoubleMatrix row = syn1neg.get(item);
-        if (row == null) {
-            row = DoubleMatrix.zeros(layerSize);
+        if (!syn1neg.containsKey(item)) {
+            DoubleMatrix row = DoubleMatrix.zeros(layerSize);
             syn1neg.put(item, row);
         }
-        return row;
+        return syn1neg.get(item);
     }
 
     public double getAlpha() {
@@ -276,24 +284,34 @@ public class SGNSLocalLearner<T> implements Model<T> {
         this.seed = seed;
     }
 
-    public void setExternalRows(Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
-        this.externalRows = externalRows;
-        initGradients();
+    public void setExternalRows(long dataID, Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
+        this.externalRows.put(dataID, externalRows);
+        initGradients(dataID);
     }
 
-    private void initGradients() {
-        gradients = new HashMap<>(externalRows.size());
-        for (T key: externalRows.keySet()) {
-            gradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>(null, null));
+    private void initGradients(long dataID) {
+        if (gradients == null) {
+            gradients = new ConcurrentHashMap<>(externalRows.size());
+        }
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempExtRows = externalRows.get(dataID);
+        HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>> newGradients = new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>(tempExtRows.size());
+        gradients.put(dataID, newGradients);
+        for (T key: tempExtRows.keySet()) {
+            newGradients.put(key, new MutablePair<DoubleMatrix, DoubleMatrix>(null, null));
         }
     }
 
-    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getGradients() {
-        return gradients;
+    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getGradients(long dataID) {
+        return gradients.get(dataID);
     }
 
-    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getExternalRows() {
-        return externalRows;
+    public Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> getExternalRows(long dataID) {
+        return externalRows.get(dataID);
+    }
+
+    public void clean(long dataID) {
+        externalRows.remove(dataID);
+        gradients.remove(dataID);
     }
 
     @Override
@@ -303,23 +321,33 @@ public class SGNSLocalLearner<T> implements Model<T> {
         l.minAlphaOption = (FloatOption) minAlphaOption.copy();
         l.layerSizeOption = (IntOption) layerSizeOption.copy();
         l.seed = seed;
-        l.syn0 = new HashMap<>(syn0.size());
+        l.syn0 = new ConcurrentHashMap<>(syn0.size());
         for (T item: l.syn0.keySet()) {
             l.syn0.put(item, syn0.get(item).dup());
         }
-        l.syn1neg = new HashMap<>(syn1neg.size());
+        l.syn1neg = new ConcurrentHashMap<>(syn1neg.size());
         for (T item: l.syn0.keySet()) {
             l.syn0.put(item, syn0.get(item).dup());
         }
-        l.externalRows = new HashMap<>(externalRows.size());
-        for (T item: l.externalRows.keySet()) {
-            l.externalRows.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
-                    externalRows.get(item).getKey().dup(), externalRows.get(item).getValue().dup()));
+        l.externalRows = new ConcurrentHashMap<>(externalRows.size());
+        for (long dataID: externalRows.keySet()) {
+            Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> newExtRow = new HashMap<>();
+            l.externalRows.put(dataID, newExtRow);
+            for (T item : externalRows.get(dataID).keySet()) {
+                newExtRow.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
+                        externalRows.get(dataID).get(item).getKey().dup(),
+                        externalRows.get(dataID).get(item).getValue().dup()));
+            }
         }
-        l.gradients = new HashMap<>(gradients.size());
-        for (T item: l.gradients.keySet()) {
-            l.gradients.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
-                    gradients.get(item).getKey().dup(), gradients.get(item).getValue().dup()));
+        l.gradients = new ConcurrentHashMap<>(gradients.size());
+        for (long dataID: gradients.keySet()) {
+            Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> newGradient = new HashMap<>();
+            l.gradients.put(dataID, newGradient);
+            for (T item : gradients.get(dataID).keySet()) {
+                newGradient.put(item, new MutablePair<DoubleMatrix, DoubleMatrix>(
+                        gradients.get(dataID).get(item).getKey().dup(),
+                        gradients.get(dataID).get(item).getValue().dup()));
+            }
         }
         return l;
     }

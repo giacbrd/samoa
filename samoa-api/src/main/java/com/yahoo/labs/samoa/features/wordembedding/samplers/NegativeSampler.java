@@ -41,6 +41,7 @@ public class NegativeSampler<T> implements Sampler<T> {
     private static final long serialVersionUID = 7708675565227109637L;
 
     private double subsamplThr = 0.0;
+    //FIXME the vocab type has to be a parameter
     private Map<T, Long> vocab;
     private int itemsPerUpdate = 100000;
     private Double normFactor;

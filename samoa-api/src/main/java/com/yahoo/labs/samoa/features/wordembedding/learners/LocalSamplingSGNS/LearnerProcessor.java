@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
@@ -53,7 +54,7 @@ public class LearnerProcessor<T> implements Processor {
     private long iterations;
     private boolean modelAckSent = false;
     //FIXME substitute with guava cache
-    private Map<Long, LocalData<T>> tempData = new HashMap<Long, LocalData<T>>();
+    private ConcurrentHashMap<Long, LocalData<T>> tempData = new ConcurrentHashMap<Long, LocalData<T>>();
     private int lastEventCount = 0;
     private int samplerCount;
     private boolean firstDataReceived = false;
@@ -109,19 +110,22 @@ public class LearnerProcessor<T> implements Processor {
             DataIDEvent<T> dataIDEvent = (DataIDEvent) event;
             long dataID = dataIDEvent.geDataID();
             LocalData<T> localData = new LocalData<T>((T[]) new Object[dataIDEvent.getDataSize()]);
-//            logger.info("new data: "+dataID+", size: "+localData.data.length);
+            //logger.info(id + ": new data: "+dataID+", length: "+localData.data.length + ", data size:" + tempData.size());
             tempData.put(dataID, localData);
         } else if (event instanceof ItemInDataEvent) {
             ItemInDataEvent<T> newItemEvent = (ItemInDataEvent<T>) event;
             long dataID = newItemEvent.getDataID();
             T item = newItemEvent.getItem();
             int pos = newItemEvent.getPosition();
-//            logger.info("new item: "+item+" data: "+dataID+", is local: "+tempData.containsKey(dataID));
+            //logger.info(id +": new item: "+item+" - data: "+dataID+", is local: "+tempData.containsKey(dataID));
             if (tempData.containsKey(dataID)) {
                 LocalData<T> currData = tempData.get(dataID);
                 if (currData.setItem(pos, item, learner.getRowRef(item))) {
-                    learn(currData);
-                    tempData.remove(dataID);
+                    long startTime = System.nanoTime();
+                    asyncLearn(dataID, currData);
+                    long endTime = System.nanoTime();
+                    //logger.info(id + ": instant learn " + dataID + ", data size " + tempData.size());
+                    //logger.info("TIME: " + (endTime-startTime)/1000000);
                 }
             } else {
                 synchroStream.put(new RowResponse<T>(
@@ -134,12 +138,21 @@ public class LearnerProcessor<T> implements Processor {
             int pos = response.getPosition();
             DoubleMatrix row = response.getRow();
             DoubleMatrix contextRow = response.getContextRow();
-            LocalData<T> currData = tempData.get(dataID);
-            if (currData.setExternalItem(pos, item, row, contextRow)) {
-//                logger.info(id + ": size " + tempData.size() + " " + currData.externalRows.size() + " " +
-//                        currData.externalRows.keySet() + "\n" + Arrays.toString(currData.data));
-                learn(currData);
-                tempData.remove(dataID);
+            if (tempData.containsKey(dataID)) {
+                LocalData<T> currData = tempData.get(dataID);
+                if (currData.setExternalItem(pos, item, row, contextRow)) {
+//                        + " " + currData.externalRows.keySet() + "\n" + Arrays.toString(currData.data));
+                    long startTime = System.nanoTime();
+                    asyncLearn(dataID, currData);
+                    long endTime = System.nanoTime();
+                    //logger.info(id + ": learn " + dataID + ", data size " + tempData.size() + ", external rows " +
+                    //        currData.externalRows.size());
+                    //logger.info("TIME: " + (endTime - startTime) / 1000000 + " last events: " + lastEventCount);
+                }
+            } else {
+                //FIXME this should never happen!
+                logger.error(this.getClass().getSimpleName()+"-{}: the item row for \"" + item +
+                        "\" has reached this learner before data " + dataID + " initialization.", id);
             }
         } else if (event instanceof RowUpdate) {
             RowUpdate<T> update = (RowUpdate<T>) event;
@@ -149,6 +162,7 @@ public class LearnerProcessor<T> implements Processor {
                         "not contain it", id, item);
                 return false;
             }
+            //logger.info(id +": update item: "+item);
             if (update.getRow() != null) {
 //                if(item.toString().equals("and")) logger.info(update.getRow()+"");
                 learner.updateRow(item, update.getRow());
@@ -170,9 +184,29 @@ public class LearnerProcessor<T> implements Processor {
         return true;
     }
 
-    private void learn(LocalData<T> currData) {
+//    private void learn(LocalData<T> currData) {
+//        try {
+//            Thread.sleep(10);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        for (T item: currData.externalRows.keySet()) {
+//            DoubleMatrix rowUpdate = currData.externalRows.get(item).getKey();
+//            DoubleMatrix contextUpdate = currData.externalRows.get(item).getValue();
+//            if ((rowUpdate != null || contextUpdate != null) && (!rowUpdate.isEmpty() || !contextUpdate.isEmpty())) {
+//                synchroStream.put(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
+//            }
+//        }
+//        for (T item: currData.rowHashes.keySet()) {
+//            if (currData.rowChanged(item, learner.getRowRef(item))) {
+//                modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
+//            }
+//        }
+//    }
+
+    private void learn(long dataID, LocalData<T> currData) {
         T[] data = currData.data;
-        learner.setExternalRows(currData.externalRows);
+        learner.setExternalRows(dataID, currData.externalRows);
         for (int pos = 0; pos < data.length; pos++) {
             T contextItem = data[pos];
             // Generate a random window for each item
@@ -195,7 +229,7 @@ public class LearnerProcessor<T> implements Processor {
                         }
 //                        logger.info(item+" "+contextItem+" "+negItem+"");
                     }
-                    learner.train(item, contextItem, negItems);
+                    learner.train(dataID, item, contextItem, negItems);
                     iterations++;
                     if (iterations % 1000000 == 0) {
                         logger.info(String.format("LearnerProcessor-%d: at %d iterations", id, iterations));
@@ -203,7 +237,7 @@ public class LearnerProcessor<T> implements Processor {
                 }
             }
         }
-        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> gradients = learner.getGradients();
+        Map<T, Map.Entry<DoubleMatrix, DoubleMatrix>> gradients = learner.getGradients(dataID);
 //        for (int pos = 0; pos < data.length; pos++) {
 //            logger.info(currData.data+" "+currData.dataCount+" "+currData.missingData);
 //        }
@@ -218,11 +252,29 @@ public class LearnerProcessor<T> implements Processor {
                 synchroStream.put(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
             }
         }
+        learner.clean(dataID);
         for (T item: currData.rowHashes.keySet()) {
             if (currData.rowChanged(item, learner.getRowRef(item))) {
                 modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
             }
         }
+    }
+
+    private void asyncLearn(final long dataID, final LocalData<T> currData){
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    learn(dataID, currData);
+                    //Thread.sleep(100);
+                    tempData.remove(dataID);
+                } catch (Exception e) {
+                    logger.error("LearnerThread-{}: asynchronous learning interruption", id);
+                    e.printStackTrace();
+                }
+            }
+        };
+        new Thread(task, "LearnerThread-"+id).start();
     }
 
     @Override
@@ -236,7 +288,7 @@ public class LearnerProcessor<T> implements Processor {
         l.modelAckSent = p.modelAckSent;
         l.lastEventCount = p.lastEventCount;
         l.firstDataReceived = p.firstDataReceived;
-        l.tempData = new HashMap();
+        l.tempData = new ConcurrentHashMap();
         for (Object key: p.tempData.keySet()) {
             l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());
         }

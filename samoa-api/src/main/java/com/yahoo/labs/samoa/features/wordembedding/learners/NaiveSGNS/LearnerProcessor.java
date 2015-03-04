@@ -146,8 +146,8 @@ public class LearnerProcessor<T> implements Processor {
     private void learn(T item, LocalData<T> localData) {
         T contextItem = (T) localData.contextItem;
         List<T> negItems = localData.negItems;
-        learner.setExternalRows(localData.externalRows);
-        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradientUpdates = learner.train(item, contextItem, negItems);
+        learner.setExternalRows(0, localData.externalRows);
+        Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> gradientUpdates = learner.train(0, item, contextItem, negItems);
         DoubleMatrix outRow = learner.getRow(item);
         iterations++;
         if (iterations % 1000000 == 0) {

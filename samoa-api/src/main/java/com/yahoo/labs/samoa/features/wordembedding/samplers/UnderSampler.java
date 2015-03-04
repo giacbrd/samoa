@@ -39,6 +39,7 @@ public class UnderSampler<T> implements Sampler<T> {
 
     private static final long serialVersionUID = 7708676565227109647L;
     private double subsamplThr = 0.0;
+    //FIXME the vocab type has to be a parameter
     private Counter<T> vocab;
     private Double normFactor;
     private long seed = 1;
