@@ -46,8 +46,8 @@ public abstract class SamplerProcessor<T> implements Processor {
     protected long seed = 1;
     protected Sampler sampler;
     protected int id;
-    protected boolean firstDataReceived;
-    protected long dataCount;
+    protected boolean firstDataReceived = false;
+    protected long dataCount = 0;
     protected Stream learnerStream;
     protected Stream learnerAllStream;
     protected Stream modelStream;
@@ -75,7 +75,7 @@ public abstract class SamplerProcessor<T> implements Processor {
         if (event instanceof IndexUpdateEvent) {
             //TODO only one last IndexUpdateEvent will arrive
             if (event.isLastEvent()) {
-                logger.info(this.getClass().getSimpleName()+"-{}: ended with {} item types from a " +
+                logger.info(this.getClass().getSimpleName()+"-{}: collected {} item types from a " +
                                 "corpus of {} items.", id, sampler.size(), sampler.getItemCount());
                 return true;
             }
@@ -100,7 +100,7 @@ public abstract class SamplerProcessor<T> implements Processor {
 //               logger.info(this.getClass().getSimpleName()+"-{} 333: after {} data samples, the vocabulary contains {} items. {} " +
 //                        "and {} item types", id, dataCount, sampler.getItemCount(), sampler.size(), event.isLastEvent());
             if (event.isLastEvent()) {
-                logger.info(this.getClass().getSimpleName()+"-{}: collected {} item types from a corpus of {} items " +
+                logger.info(this.getClass().getSimpleName()+"-{}: ended with {} item types from a corpus of {} items " +
                                 "and {} data samples", id, sampler.size(), sampler.getItemCount(), dataCount);
                 learnerAllStream.put(new ItemEvent(null, null, null, true));
                 return true;

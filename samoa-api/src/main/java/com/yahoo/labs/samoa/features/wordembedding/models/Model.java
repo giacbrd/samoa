@@ -49,6 +49,7 @@ public class Model<T> implements Processor {
     private File outPath;
     private int lastEventCount = 0;
     private int learnerCount;
+    private boolean alreadyWritten = false;
 
     public Model(int learnerCount) {
         this.learnerCount = learnerCount;
@@ -70,7 +71,7 @@ public class Model<T> implements Processor {
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
             lastEventCount++;
-            if (lastEventCount >= learnerCount) {
+            if (lastEventCount >= learnerCount && !alreadyWritten) {
                 try {
                     if (outPath != null) {
                         if (!outPath.isFile()) {
@@ -85,6 +86,8 @@ public class Model<T> implements Processor {
                         fos.close();
                         logger.info("Model written in " + outPath.getAbsolutePath());
                         logger.info("Exit!");
+                        //FIXME choose between exit() and the flag alreadyWritten
+                        alreadyWritten = true;
                         System.exit(0);
                     } else {
                         throw new IOException("Model path is not set.");
@@ -132,6 +135,7 @@ public class Model<T> implements Processor {
         m.outputStream = p.outputStream;
         m.syn0norm = p.syn0norm;
         m.outPath = p.outPath;
+        m.alreadyWritten = p.alreadyWritten;
         return m;
     }
 

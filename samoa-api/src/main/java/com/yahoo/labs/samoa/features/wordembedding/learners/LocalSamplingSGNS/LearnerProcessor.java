@@ -44,20 +44,21 @@ public class LearnerProcessor<T> implements Processor {
 
     private static final Logger logger = LoggerFactory.getLogger(LearnerProcessor.class);
 
-    private SGNSLocalLearner learner;
+    private volatile SGNSLocalLearner learner;
     private short window;
     private Sampler<T> sampler;
     private long seed = 1;
-    private Stream synchroStream;
-    private Stream modelStream;
+    private volatile Stream synchroStream;
+    private volatile Stream modelStream;
     private int id;
     private long iterations;
-    private boolean modelAckSent = false;
     //FIXME substitute with guava cache
     private ConcurrentHashMap<Long, LocalData<T>> tempData = new ConcurrentHashMap<Long, LocalData<T>>();
     private int lastEventCount = 0;
     private int samplerCount;
     private boolean firstDataReceived = false;
+    //FIXME is necessary to control last events? it should be always only one
+    private boolean lastEventSent = false;
 
     public LearnerProcessor(short window, SGNSLocalLearner localLearner, Sampler<T> sampler, int samplerCount) {
         this.window = window;
@@ -175,11 +176,14 @@ public class LearnerProcessor<T> implements Processor {
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
         }
         //FIXME it is not guaranteed that all the model updates after row updates will be sent!
-        if (lastEventCount >= samplerCount && tempData.isEmpty() && !modelAckSent) {
+        if (lastEventCount >= samplerCount && !lastEventSent) {
+            //FIXME wait indefinitely! here we should do a join on the learning threads
+            //FIXME  commented because it does not work on storm, it won't execute the last learning iterations
+            //while (!tempData.isEmpty()) {};
             logger.info(String.format("LearnerProcessor-%d: finished after %d iterations with %d items",
                     id, iterations, learner.size()));
             modelStream.put(new ModelUpdateEvent(null, null, true));
-            modelAckSent = true;
+            lastEventSent = true;
         }
         return true;
     }
@@ -230,10 +234,7 @@ public class LearnerProcessor<T> implements Processor {
 //                        logger.info(item+" "+contextItem+" "+negItem+"");
                     }
                     learner.train(dataID, item, contextItem, negItems);
-                    iterations++;
-                    if (iterations % 1000000 == 0) {
-                        logger.info(String.format("LearnerProcessor-%d: at %d iterations", id, iterations));
-                    }
+                    incrIterations();
                 }
             }
         }
@@ -260,21 +261,30 @@ public class LearnerProcessor<T> implements Processor {
         }
     }
 
+    private synchronized void incrIterations() {
+        iterations++;
+        if (iterations % 1000000 == 0) {
+            logger.info(String.format("LearnerProcessor-%d: at %d iterations", id, iterations));
+        }
+    }
+
     private void asyncLearn(final long dataID, final LocalData<T> currData){
         Runnable task = new Runnable() {
             @Override
             public void run() {
                 try {
+                    //logger.info("learning " + dataID);
                     learn(dataID, currData);
-                    //Thread.sleep(100);
+                    //logger.info("finished " + dataID);
+                    //Thread.sleep(1);
                     tempData.remove(dataID);
                 } catch (Exception e) {
-                    logger.error("LearnerThread-{}: asynchronous learning interruption", id);
+                    logger.error("LearnerSubThread-{}: asynchronous learning interruption", id);
                     e.printStackTrace();
                 }
             }
         };
-        new Thread(task, "LearnerThread-"+id).start();
+        new Thread(task, "LearnerSubThread-"+id).start();
     }
 
     @Override
@@ -285,9 +295,9 @@ public class LearnerProcessor<T> implements Processor {
         l.modelStream = p.modelStream;
         l.synchroStream = p.synchroStream;
         l.iterations = p.iterations;
-        l.modelAckSent = p.modelAckSent;
         l.lastEventCount = p.lastEventCount;
         l.firstDataReceived = p.firstDataReceived;
+        l.lastEventSent = p.lastEventSent;
         l.tempData = new ConcurrentHashMap();
         for (Object key: p.tempData.keySet()) {
             l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());

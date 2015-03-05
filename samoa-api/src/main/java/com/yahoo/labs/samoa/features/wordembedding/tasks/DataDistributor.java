@@ -45,6 +45,7 @@ public class DataDistributor<T> implements Processor {
     private Stream itemStream;
     private Stream dataStream;
     private Stream dataAllStream;
+    private boolean lastEventSent = false;
 
     @Override
     public void onCreate(int id) {
@@ -54,10 +55,12 @@ public class DataDistributor<T> implements Processor {
     @Override
     public boolean process(ContentEvent event) {
 //        logger.info("DataDistr "+event.isLastEvent() +" "+ ((OneContentEvent<List<T>>) event).getContent());
-        if (event.isLastEvent()) {
+        //FIXME lastEventSent prevents sending more than one last event (it is necessary for the samoa-local bug)
+        if (event.isLastEvent() && !lastEventSent) {
             //TODO only one indexer receives the last message
             itemStream.put(new OneContentEvent<T>(null, true));
             dataAllStream.put(new OneContentEvent<List<T>>(null, true));
+            lastEventSent = true;
             return true;
         }
         OneContentEvent<List<T>> data = (OneContentEvent<List<T>>) event;

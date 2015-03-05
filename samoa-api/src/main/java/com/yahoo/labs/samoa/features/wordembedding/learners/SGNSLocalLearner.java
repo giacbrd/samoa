@@ -284,15 +284,12 @@ public class SGNSLocalLearner<T> implements Model<T> {
         this.seed = seed;
     }
 
-    public void setExternalRows(long dataID, Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
+    public synchronized void setExternalRows(long dataID, Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> externalRows) {
         this.externalRows.put(dataID, externalRows);
         initGradients(dataID);
     }
 
-    private void initGradients(long dataID) {
-        if (gradients == null) {
-            gradients = new ConcurrentHashMap<>(externalRows.size());
-        }
+    private synchronized void initGradients(long dataID) {
         Map<T, MutablePair<DoubleMatrix, DoubleMatrix>> tempExtRows = externalRows.get(dataID);
         HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>> newGradients = new HashMap<T, MutablePair<DoubleMatrix, DoubleMatrix>>(tempExtRows.size());
         gradients.put(dataID, newGradients);

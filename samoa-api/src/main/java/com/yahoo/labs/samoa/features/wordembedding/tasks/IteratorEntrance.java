@@ -68,6 +68,7 @@ public class IteratorEntrance<T> implements EntranceProcessor {
         IteratorEntrance p = (IteratorEntrance) processor;
         IteratorEntrance i = new IteratorEntrance(p.iterator, p.delay, p.noDelaySamples);
         i.samplesCount = p.samplesCount;
+        i.isFinished = p.isFinished;
         return i;
     }
 
@@ -85,6 +86,8 @@ public class IteratorEntrance<T> implements EntranceProcessor {
             lastElement = (T) iterator.next();
         } else {
             isFinished = true;
+            //FIXME samoa-local works when this is not commented! (otherwise it sends two last events)
+            //return false;
         }
         return true;
     }
@@ -104,7 +107,7 @@ public class IteratorEntrance<T> implements EntranceProcessor {
 //            logger.info("Sending in output " + lastElement.toString());
             return new OneContentEvent(lastElement, false);
         } else {
-//            logger.info("Sending in output last event");
+            logger.info("Sending in output last event");
             return new OneContentEvent(null, true);
         }
     }

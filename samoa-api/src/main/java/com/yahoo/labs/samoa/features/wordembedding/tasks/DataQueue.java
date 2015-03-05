@@ -70,11 +70,14 @@ public class DataQueue<T> implements Processor {
 //        logger.info(this.getClass().getSimpleName()+"-{}: {} {}", id, queue.size(), event.isLastEvent());
         if (event.isLastEvent()) {
             //FIXME optimize this O(2n) operation for emptying the queue?
-            Collections.shuffle(queue, new java.util.Random(seed));
-            for (int i = 0; i < queue.size(); i++) {
-                if (queue.get(i) != null) {
-                    outData.addFirst(queue.get(i));
+            if (!queue.isEmpty()) {
+                Collections.shuffle(queue, new java.util.Random(seed));
+                for (int i = 0; i < queue.size(); i++) {
+                    if (queue.get(i) != null) {
+                        outData.addFirst(queue.get(i));
+                    }
                 }
+                queue.clear();
             }
             while (!outData.isEmpty()) {
                 pollData();
