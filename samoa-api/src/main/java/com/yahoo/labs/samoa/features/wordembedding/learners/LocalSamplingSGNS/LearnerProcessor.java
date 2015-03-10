@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * @author Giacomo Berardi <barnets@gmail.com>.
@@ -48,8 +49,10 @@ public class LearnerProcessor<T> implements Processor {
     private short window;
     private Sampler<T> sampler;
     private long seed = 1;
-    private volatile Stream synchroStream;
-    private volatile Stream modelStream;
+    private Stream synchroStream;
+    private Stream modelStream;
+    private volatile ConcurrentLinkedQueue<RowUpdate> synchroEvents;
+    private volatile ConcurrentLinkedQueue<ModelUpdateEvent> modelEvents;
     private int id;
     private long iterations;
     //FIXME substitute with guava cache
@@ -74,11 +77,15 @@ public class LearnerProcessor<T> implements Processor {
         this.learner.setSeed(seed);
         this.sampler.initConfiguration();
         this.sampler.setSeed(seed);
+        synchroEvents = new ConcurrentLinkedQueue<>();
+        modelEvents = new ConcurrentLinkedQueue<>();
     }
 
     //FIXME sampler and learner have to use the same local index (no Space Saving necessary)
     @Override
     public boolean process(ContentEvent event) {
+        // Empty the queues of outgoing events generated after a learning call
+        pollEvents();
         if (event instanceof IndexUpdateEvent) {
             if (event.isLastEvent()) {
                 return true;
@@ -188,6 +195,15 @@ public class LearnerProcessor<T> implements Processor {
         return true;
     }
 
+    private void pollEvents() {
+        while (!synchroEvents.isEmpty()) {
+            synchroStream.put(synchroEvents.poll());
+        }
+        while (!modelEvents.isEmpty()) {
+            modelStream.put(modelEvents.poll());
+        }
+    }
+
 //    private void learn(LocalData<T> currData) {
 //        try {
 //            Thread.sleep(10);
@@ -250,13 +266,13 @@ public class LearnerProcessor<T> implements Processor {
             DoubleMatrix rowUpdate = gradients.get(item).getKey();
             DoubleMatrix contextUpdate = gradients.get(item).getValue();
             if ((rowUpdate != null || contextUpdate != null) && (!rowUpdate.isEmpty() || !contextUpdate.isEmpty())) {
-                synchroStream.put(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
+                synchroEvents.add(new RowUpdate(item, rowUpdate, contextUpdate, item.toString()));
             }
         }
         learner.clean(dataID);
         for (T item: currData.rowHashes.keySet()) {
             if (currData.rowChanged(item, learner.getRowRef(item))) {
-                modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
+                modelEvents.add(new ModelUpdateEvent(item, learner.getRow(item), false));
             }
         }
     }
@@ -301,6 +317,16 @@ public class LearnerProcessor<T> implements Processor {
         l.tempData = new ConcurrentHashMap();
         for (Object key: p.tempData.keySet()) {
             l.tempData.put(key, ((LocalData<T>) p.tempData.get(key)).copy());
+        }
+        l.synchroEvents = new ConcurrentLinkedQueue();
+        Iterator iter = p.synchroEvents.iterator();
+        while (iter.hasNext()) {
+            l.synchroEvents.add(iter.next());
+        }
+        l.modelEvents = new ConcurrentLinkedQueue();
+        iter = p.modelEvents.iterator();
+        while (iter.hasNext()) {
+            l.modelEvents.add(iter.next());
         }
         return l;
     }
