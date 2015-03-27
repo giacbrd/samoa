@@ -47,12 +47,13 @@ public class NegativeSampler<T> implements Sampler<T> {
     private Double normFactor;
     private double power = 0.75;
     private int[] table;
+    //FIXME tableSize must change with the current vocabulary size
     private int tableSize = 100000000;
     private long seed = 1;
     //FIXME setting the capacity to MAX_VALUE for some data structures can be dangerous (huge allocation of memory)
     private int capacity = Integer.MAX_VALUE;
     //FIXME use hash values instead of strings (from IndexerProcessor to the model)
-    private Object[] index2item;
+    private volatile Object[] index2item;
     private int negative = 10;
     private long itemUpdates;
     private long itemCount;
@@ -135,7 +136,7 @@ public class NegativeSampler<T> implements Sampler<T> {
     // FIXME need a more fine and intelligent update (any library for computing distribution like this?)
     // FIXME asynchronous with FutureTask
     @Override
-    public void update() {
+    public synchronized void update() {
         table = new int[tableSize]; //table (= list of words) of noise distribution for negative sampling
         //compute sum of all power (Z in paper)
         normFactor = 0.0;
@@ -146,13 +147,13 @@ public class NegativeSampler<T> implements Sampler<T> {
         }
         //logger.info("normfactor "+normFactor);
         //logger.info("SGNSSampler: constructing a table with noise distribution from {} words", vocabSize);
-        index2item = new Object[vocabSize];
+        Object[] tempIndex2item = new Object[vocabSize];
         //go through the whole table and fill it up with the word indexes proportional to a word's count**power
         int widx = 0;
         vocabIter = vocab.entrySet().iterator();
         Map.Entry<T, Long> vocabItem = vocabIter.next();
         long count = vocabItem.getValue();
-        index2item[widx] = vocabItem.getKey();
+        tempIndex2item[widx] = vocabItem.getKey();
         // normalize count^0.75 by Z
         double d1 = Math.pow(count, power) / normFactor;
         for (int tidx = 0; tidx < tableSize; tidx++) {
@@ -162,7 +163,7 @@ public class NegativeSampler<T> implements Sampler<T> {
                 if (vocabIter.hasNext()) {
                     vocabItem = vocabIter.next();
                     count = vocabItem.getValue();
-                    index2item[widx] = vocabItem.getKey();
+                    tempIndex2item[widx] = vocabItem.getKey();
                     d1 += Math.pow(count, power) / normFactor;
                 }
 
@@ -171,6 +172,7 @@ public class NegativeSampler<T> implements Sampler<T> {
                 widx = vocabSize - 1;
             }
         }
+        index2item = tempIndex2item;
     }
 
     public List<T> negItems() {
@@ -200,14 +202,18 @@ public class NegativeSampler<T> implements Sampler<T> {
 
     @Override
     public void put(T item, long frequency) {
-        vocab.put(item, frequency);
-        checkUpdate();
+        if (item != null && frequency > 0) {
+            vocab.put(item, frequency);
+            checkUpdate();
+        }
     }
 
     @Override
     public void remove(T item) {
-        vocab.remove(item);
-        checkUpdate();
+        if (item != null) {
+            vocab.remove(item);
+            checkUpdate();
+        }
     }
 
     private void checkUpdate() {

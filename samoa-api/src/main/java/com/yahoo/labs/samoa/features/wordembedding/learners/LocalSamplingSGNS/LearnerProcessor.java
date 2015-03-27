@@ -68,17 +68,16 @@ public class LearnerProcessor<T> implements Processor {
         this.sampler = sampler;
         this.learner = localLearner;
         this.samplerCount = samplerCount;
+        this.synchroEvents = new ConcurrentLinkedQueue<>();
+        this.modelEvents = new ConcurrentLinkedQueue<>();
     }
 
     @Override
     public void onCreate(int id) {
         this.id = id;
         this.learner.initConfiguration();
-        this.learner.setSeed(seed);
         this.sampler.initConfiguration();
-        this.sampler.setSeed(seed);
-        synchroEvents = new ConcurrentLinkedQueue<>();
-        modelEvents = new ConcurrentLinkedQueue<>();
+        setSeed(seed);
     }
 
     //FIXME sampler and learner have to use the same local index (no Space Saving necessary)
@@ -104,7 +103,9 @@ public class LearnerProcessor<T> implements Processor {
             sampler.setItemCount(sampler.getItemCount() + itemCount);
             //FIXME expensive hack for adding a new item to the local learner and the model
             modelStream.put(new ModelUpdateEvent(item, learner.getRow(item), false));
-        } if (event.isLastEvent()) {
+            return true;
+        }
+        if (event.isLastEvent()) {
             lastEventCount++;
         } else if (event instanceof DataIDEvent) {
             if (!firstDataReceived) {
@@ -248,6 +249,9 @@ public class LearnerProcessor<T> implements Processor {
                             negItems.add(negItem);
                         }
 //                        logger.info(item+" "+contextItem+" "+negItem+"");
+                    }
+                    if (negItems.isEmpty()) {
+                        continue;
                     }
                     learner.train(dataID, item, contextItem, negItems);
                     incrIterations();

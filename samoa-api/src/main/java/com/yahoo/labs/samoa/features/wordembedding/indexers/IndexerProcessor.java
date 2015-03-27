@@ -20,7 +20,6 @@ package com.yahoo.labs.samoa.features.wordembedding.indexers;
  * #L%
  */
 
-import com.github.javacliparser.ClassOption;
 import com.yahoo.labs.samoa.core.ContentEvent;
 import com.yahoo.labs.samoa.core.Processor;
 import com.yahoo.labs.samoa.features.wordembedding.tasks.OneContentEvent;
@@ -59,7 +58,7 @@ public class IndexerProcessor<T> implements Processor {
     public boolean process(ContentEvent event) {
         if (event.isLastEvent()) {
             logger.info("IndexerProcessor-{}: collected {} item types from a corpus of {} items",
-                    id, indexer.size(), indexer.itemCount());
+                    id, indexer.size(), indexer.itemTotalCount());
             aggregationStream.put(new IndexUpdateEvent(null, 0, null, true));
             return true;
         }
@@ -67,14 +66,15 @@ public class IndexerProcessor<T> implements Processor {
         T item = (T) content.getContent();
         Long newItemCount = indexer.add(item);
         Map<T, Long> removeVocab = indexer.getRemoved();
-        long itemCount = indexer.itemCount();
+        long itemTotalCount = indexer.itemTotalCount();
         //FIXME this works because data increments by 1 at each add
-        if (itemCount % 1000000 == 0 && itemCount > 0) {
+        if (itemTotalCount > 0 && itemTotalCount % 1000000 == 0) {
             logger.info("IndexerProcessor-{}: processed {} items and {} item types",
-                    id, itemCount, indexer.size());
+                    id, itemTotalCount, indexer.size());
         }
         if (newItemCount > 0 || !removeVocab.isEmpty()) {
-            IndexUpdateEvent indexUpdate = new IndexUpdateEvent(item, newItemCount, removeVocab, false);
+            IndexUpdateEvent indexUpdate = new IndexUpdateEvent(
+                    (newItemCount > 0) ? item : null, newItemCount, removeVocab, false);
             aggregationStream.put(indexUpdate);
             if (learnerStream != null) {
                 indexUpdate.setKey(item.toString());

@@ -70,7 +70,7 @@ public interface Indexer<T> extends Configurable, Serializable {
      * Sum of all item counts (occurrences count of items in processed data).
      * @return
      */
-    long itemCount();
+    long itemTotalCount();
 
     Indexer<T> copy();
 

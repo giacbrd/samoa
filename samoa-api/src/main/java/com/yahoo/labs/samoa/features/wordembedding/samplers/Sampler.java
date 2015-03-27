@@ -60,7 +60,7 @@ public interface Sampler<T> extends Configurable, Serializable {
     /**
      * Set the new frequency of the item.
      * @param item
-     * @param frequency
+     * @param frequency Must be > 0
      */
     void put(T item, long frequency);
 
@@ -80,6 +80,7 @@ public interface Sampler<T> extends Configurable, Serializable {
      * Set the true sum of item frequencies, so that the sampler can have the exact value and not an approximated one.
      * @param itemCount
      */
+    //FIXME rename in TotalCount
     void setItemCount(long itemCount);
 
     long getItemCount();

@@ -123,12 +123,16 @@ public class UnderSampler<T> implements Sampler<T> {
 
     @Override
     public void put(T item, long frequency) {
-        vocab.put(item, frequency);
+        if (item != null && frequency > 0) {
+            vocab.put(item, frequency);
+        }
     }
 
     @Override
     public void remove(T item) {
-        vocab.remove(item);
+        if (item != null) {
+            vocab.remove(item);
+        }
     }
 
     @Override

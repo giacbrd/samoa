@@ -126,7 +126,8 @@ public class CacheIndexer<T> implements Indexer<T> {
             e.printStackTrace();
         }
         removeVocab.keySet().remove(item);
-        if (count >= minCount) {
+        //FIXME 10 should be a parameter, or maybe following a zip distribution
+        if (count > minCount && (count == minCount || (count % 10 == 0))) {
             return count;
         } else {
             return (long) 0;
@@ -158,7 +159,7 @@ public class CacheIndexer<T> implements Indexer<T> {
     }
 
     @Override
-    public long itemCount() {
+    public long itemTotalCount() {
         return totalItems;
     }
 
